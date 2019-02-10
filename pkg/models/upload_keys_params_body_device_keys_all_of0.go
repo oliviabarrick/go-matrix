@@ -40,7 +40,7 @@ type UploadKeysParamsBodyDeviceKeysAllOf0 struct {
 	// The signature is calculated using the process described at `Signing
 	// JSON`_.
 	// Required: true
-	Signatures map[string]map[string]string `json:"signatures"`
+	Signatures map[string]map[string]string `json:"signatures,omitempty"`
 
 	// The ID of the user the device belongs to. Must match the user ID used
 	// when logging in.
