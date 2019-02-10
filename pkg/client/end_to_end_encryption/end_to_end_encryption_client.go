@@ -7,7 +7,6 @@ package end_to_end_encryption
 
 import (
 	"github.com/go-openapi/runtime"
-
 	strfmt "github.com/go-openapi/strfmt"
 )
 
@@ -152,6 +151,7 @@ func (a *Client) UploadKeys(params *UploadKeysParams, authInfo runtime.ClientAut
 	if err != nil {
 		return nil, err
 	}
+
 	return result.(*UploadKeysOK), nil
 
 }

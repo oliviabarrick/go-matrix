@@ -1,7 +1,6 @@
 package matrix
 
 import (
-	"errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
@@ -9,8 +8,10 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/client/room_participation"
 	"github.com/justinbarrick/go-matrix/pkg/client/session_management"
 	"github.com/justinbarrick/go-matrix/pkg/client/end_to_end_encryption"
+	"github.com/justinbarrick/go-matrix/pkg/client/send_to_device_messaging"
 	"github.com/justinbarrick/go-matrix/pkg/models"
 
+	// "github.com/davecgh/go-spew/spew"
 	"github.com/tent/canonical-json-go"
 	"encoding/json"
 	"os"
@@ -22,6 +23,7 @@ type Bot struct {
 	accessToken string
 	username    string
 	password    string
+	olm         *Olm
 	client      *client.MatrixClientServer
 }
 
@@ -48,39 +50,55 @@ func NewOlm() (*Olm, error) {
 	if _, err := os.Stat("state.json"); os.IsNotExist(err) {
 		olm.account = libolm.CreateNewAccount()
 		olm.account.GenerateOneTimeKeys(100)
-
-		f, err := os.Create("state.json")
+		err = olm.Serialize()
 		if err != nil {
-			return nil, err
+			return olm, nil
 		}
-
-		err = json.NewEncoder(f).Encode(BotState{
-			OlmAccount: olm.account.Pickle("lol"),
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		f.Close()
 	} else {
-		f, err := os.Open("state.json")
+		err = olm.Deserialize()
 		if err != nil {
-			return nil, err
+			return olm, nil
 		}
-
-		botState := BotState{}
-
-		err = json.NewDecoder(f).Decode(&botState)
-		if err != nil {
-			return nil, err
-		}
-
-		f.Close()
-
-		olm.account = libolm.AccountFromPickle("lol", botState.OlmAccount)
 	}
 
 	return olm, nil
+}
+
+func (o *Olm) Deserialize() error {
+	f, err := os.Open("state.json")
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	botState := BotState{}
+
+	err = json.NewDecoder(f).Decode(&botState)
+	if err != nil {
+		return err
+	}
+
+	o.account = libolm.AccountFromPickle("lol", botState.OlmAccount)
+	return nil
+}
+
+func (o *Olm) Serialize() error {
+	f, err := os.Create("state.json")
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	err = json.NewEncoder(f).Encode(BotState{
+		OlmAccount: o.account.Pickle("lol"),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (o *Olm) GetIdentityKeys() IdentityKeys {
@@ -116,8 +134,8 @@ func (o *Olm) UploadKeysParams(deviceId, userId string) (*end_to_end_encryption.
 	deviceKeys := &models.UploadKeysParamsBodyDeviceKeys{
 		models.UploadKeysParamsBodyDeviceKeysAllOf0{
 			Algorithms: []string{
-				"m.olm.curve25519-aes-sha256",
 				"m.megolm.v1.aes-sha",
+				"m.olm.curve25519-aes-sha256",
 			},
 			DeviceID: &deviceId,
 			Keys: map[string]string{
@@ -146,6 +164,28 @@ func (o *Olm) UploadKeysParams(deviceId, userId string) (*end_to_end_encryption.
 	})
 
 	return uploadKeys, nil
+}
+
+func (o *Olm) MarkPublished() (error) {
+	o.account.MarkKeysAsPublished()
+	return o.Serialize()
+}
+
+func (o *Olm) EncryptedEvent(session libolm.Session, deviceId string, event interface{}) (map[string]string, error) {
+	contentEncoded, err := json.Marshal(event)
+	if err != nil {
+		return nil, fmt.Errorf("Error encoding content: %s", err)
+	}
+
+	_, ciphertext := session.Encrypt(string(contentEncoded))
+
+	return map[string]string{
+		"algorithm": "m.megolm.v1.aes-sha2",
+		"sender_key": o.GetIdentityKeys().Ed25519,
+		"device_id": deviceId,
+		"session_id": session.GetSessionID(),
+		"ciphertext": ciphertext,
+	}, nil
 }
 
 func (b *Bot) GetDeviceId() (string, error) {
@@ -180,34 +220,103 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 		}
 	}
 
-	olm, err := NewOlm()
+	var err error
+
+	bot.olm, err = NewOlm()
 	if err != nil {
 		return bot, err
 	}
 
 	deviceId, err := bot.GetDeviceId()
 	if err != nil {
-		return bot, err
+		return bot, fmt.Errorf("Could not get device id: %s", err)
 	}
 
-	userId := "@musicboat:priv8.chat"
+	userId := "@cbot:priv8.chat"
 
-	uploadKeys, err := olm.UploadKeysParams(deviceId, userId)
+	uploadKeys, err := bot.olm.UploadKeysParams(deviceId, userId)
 	if err != nil {
-		return bot, err
+		return bot, fmt.Errorf("Could not get upload keys parameters: %s", err)
 	}
 
 	_, err = bot.client.EndToEndEncryption.UploadKeys(uploadKeys, &bot)
 	if err != nil {
-		return bot, err
+		return bot, fmt.Errorf("Could not upload keys: %s", err)
 	}
+
+	err = bot.olm.MarkPublished()
+	if err != nil {
+		return bot, fmt.Errorf("Error publishing: %s", err)
+	}
+
+	destId := "@j:priv8.chat"
+	queryParams := end_to_end_encryption.NewQueryKeysParams()
+	queryParams.SetQuery(&models.QueryKeysParamsBody{
+		DeviceKeys: map[string][]string{
+			destId: []string{},
+		},
+	})
+
+	query, err := bot.client.EndToEndEncryption.QueryKeys(queryParams, &bot)
+	if err != nil {
+		return bot, fmt.Errorf("Error fetching keys: %s", err)
+	}
+
+	deviceKeys := query.Payload.DeviceKeys
+	wantedKeys := map[string]map[string]string{}
+
+	for destDeviceId, _ := range deviceKeys[destId] {
+		if wantedKeys[destId] == nil {
+			wantedKeys[destId] = map[string]string{}
+		}
+
+		wantedKeys[destId][destDeviceId] = "signed_curve25519"
+	}
+
+	claimParams := end_to_end_encryption.NewClaimKeysParams()
+	claimParams.SetQuery(&models.ClaimKeysParamsBody{
+		OneTimeKeys: wantedKeys,
+	})
+
+	claim, err := bot.client.EndToEndEncryption.ClaimKeys(claimParams, &bot)
+	if err != nil {
+		return bot, fmt.Errorf("Error claiming keys: %s", err)
+	}
+
+	for destId, destDevices := range claim.Payload.OneTimeKeys {
+		for destDeviceId, keys := range destDevices {
+			for _, keyData := range keys {
+				destKey := deviceKeys[destId][destDeviceId].Keys[fmt.Sprintf("curve25519:%s", destDeviceId)]
+				destOneTimeKey := keyData.Key
+
+				session := libolm.CreateOutboundSession(bot.olm.account, destKey, destOneTimeKey)
+
+				bot.SendToDeviceEncrypted(session, destId, destDeviceId, map[string]string{
+					"algorithm": "m.megolm.v1.aes-sha2",
+					"room_id": "!uPnoBWbuAnJfszrxDG:priv8.chat",
+					"session_id": session.GetSessionID(),
+					"session_key": "",
+				})
+
+				fmt.Println("Sent message to", destId, "device", destDeviceId)
+			}
+		}
+	}
+
+/*
+	bot.EncryptedSend(session, "!uPnoBWbuAnJfszrxDG:priv8.chat", map[string]string{
+		"type": "m.room.message",
+		"content": "hi!",
+		"room_id": "!uPnoBWbuAnJfszrxDG:priv8.chat",
+	}
+*/
 
 	return bot, nil
 }
 
 func (b *Bot) AuthenticateRequest(request runtime.ClientRequest, registry strfmt.Registry) error {
 	if b.accessToken == "" {
-		return errors.New("No access token set, please login.")
+		return fmt.Errorf("No access token set, please login.")
 	}
 
 	request.SetQueryParam("access_token", b.accessToken)
@@ -226,10 +335,79 @@ func (b *Bot) Login() error {
 
 	loginOk, err := b.client.SessionManagement.Login(loginParams)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not login: %s", err)
 	}
 
 	b.accessToken = loginOk.Payload.AccessToken
+	return nil
+}
+
+func (b *Bot) SendToDeviceEncrypted(session libolm.Session, destUserId string, destDeviceId string, event interface{}) error {
+	deviceId, err := b.GetDeviceId()
+	if err != nil {
+		return fmt.Errorf("Could not get device id: %s", err)
+	}
+
+	params := send_to_device_messaging.NewSendToDeviceParams()
+	params.SetEventType("m.room.encrypted")
+
+	encrypted, err := b.olm.EncryptedEvent(session, deviceId, event)
+	if err != nil {
+		return fmt.Errorf("Could not encrypt event: %s", err)
+	}
+
+	params.SetBody(&models.SendToDeviceParamsBody{
+		Messages: map[string]map[string]interface{}{
+			destUserId: map[string]interface{}{
+				destDeviceId: encrypted,
+			},
+		},
+	})
+
+	txid, err := uuid.NewRandom()
+	if err != nil {
+		return fmt.Errorf("Could not generate uuid: %s", err)
+	}
+
+	params.SetTxnID(txid.String())
+
+	_, err = b.client.SendToDeviceMessaging.SendToDevice(params, b)
+	if err != nil {
+		return fmt.Errorf("Could not send message: %s", err)
+	}
+
+	return nil
+}
+
+
+func (b *Bot) EncryptedSend(session libolm.Session, channel string, message string) error {
+	deviceId, err := b.GetDeviceId()
+	if err != nil {
+		return fmt.Errorf("Could not get device id: %s", err)
+	}
+
+	encrypted, err := b.olm.EncryptedEvent(session, deviceId, message)
+	if err != nil {
+		return fmt.Errorf("Could not encrypt event: %s", err)
+	}
+
+	params := room_participation.NewSendMessageParams()
+	params.SetRoomID(channel)
+	params.SetBody(encrypted)
+	params.SetEventType("m.room.encrypted")
+
+	txid, err := uuid.NewRandom()
+	if err != nil {
+		return fmt.Errorf("Could not generate uuid: %s", err)
+	}
+
+	params.SetTxnID(txid.String())
+
+	_, err = b.client.RoomParticipation.SendMessage(params, b)
+	if err != nil {
+		return fmt.Errorf("Could not send message: %s", err)
+	}
+
 	return nil
 }
 
@@ -244,14 +422,14 @@ func (b *Bot) Send(channel, message string) error {
 
 	txid, err := uuid.NewRandom()
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not generate uuid: %s", err)
 	}
 
 	params.SetTxnID(txid.String())
 
 	_, err = b.client.RoomParticipation.SendMessage(params, b)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not send message: %s", err)
 	}
 
 	return nil

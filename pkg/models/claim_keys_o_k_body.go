@@ -11,6 +11,11 @@ import (
 	"github.com/go-openapi/swag"
 )
 
+type SignedOneTimeKey struct {
+	Key string `json:"key"`
+	Signatures map[string]map[string]string `json:"signatures"`
+}
+
 // ClaimKeysOKBody claim keys o k body
 // swagger:model claimKeysOKBody
 type ClaimKeysOKBody struct {
@@ -26,7 +31,7 @@ type ClaimKeysOKBody struct {
 
 	// One-time keys for the queried devices. A map from user ID, to a
 	// map from devices to a map from ``<algorithm>:<key_id>`` to the key object.
-	OneTimeKeys map[string]map[string]string `json:"one_time_keys,omitempty"`
+	OneTimeKeys map[string]map[string]map[string]SignedOneTimeKey `json:"one_time_keys,omitempty"`
 }
 
 // Validate validates this claim keys o k body
