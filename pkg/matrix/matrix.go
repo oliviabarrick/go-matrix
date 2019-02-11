@@ -358,6 +358,8 @@ func (b *Bot) Send(channel, message string) error {
 
 	return b.SendEvent(channel, "m.room.message", map[string]string{
 		"msgtype": "m.text",
+		"formatted_body": message,
+		"format": "org.matrix.custom.html",
 		"body": message,
 	})
 }
@@ -376,7 +378,9 @@ func (b *Bot) SendEncrypted(channel, message string) error {
 
 	return b.SendEncryptedEvent(groupSession, channel, "m.room.message", map[string]string{
 		"body": message,
+		"formatted_body": message,
 		"msgtype": "m.text",
+		"format": "org.matrix.custom.html",
 	})
 }
 
