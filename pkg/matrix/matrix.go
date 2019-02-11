@@ -13,6 +13,7 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/models"
 
 	"encoding/json"
+	"strings"
 	"fmt"
 	libolm "github.com/justinbarrick/libolm-go"
 )
@@ -161,7 +162,7 @@ func (b *Bot) UploadKeys() error {
 	}
 
 	err = b.olm.MarkPublished()
-	if err != nil {
+	if err != nil && ! strings.Contains(err.Error(), "read-only") {
 		return fmt.Errorf("Error publishing: %s", err)
 	}
 
