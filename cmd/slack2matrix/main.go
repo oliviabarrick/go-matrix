@@ -62,6 +62,7 @@ func main() {
 		
 		err = json.Unmarshal(body, &message)
 		if err != nil {
+			log.Println("Error unmarshalling message:", err.Error())
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -74,6 +75,7 @@ func main() {
 		for _, attachment := range message.Attachments {
 			err = bot.SendEncrypted(channel, attachment.Text)
 			if err != nil {
+				log.Println("Error sending message:", err.Error())
 				http.Error(w, err.Error(), 500)
 				return
 			}
