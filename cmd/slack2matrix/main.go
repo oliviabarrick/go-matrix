@@ -51,29 +51,17 @@ func main() {
 	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
 		message := SlackMessage{}
 
-		fmt.Println(r.Header.Get("Content-Encoding"))
+		body, _ := ioutil.ReadAll(r.Body)
 
-		if true {
-			b, _ := ioutil.ReadAll(r.Body)
-
-			values, err := url.ParseQuery(string(b))
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
-			}
-
-			err = json.Unmarshal([]byte(values.Get("payload")), &message)
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
-			}
-		} else {
-			err := json.NewDecoder(r.Body).Decode(&message)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), 400)
-				return
-			}
+		values, err := url.ParseQuery(string(body))
+		if err == nil && values.Get("payload") != "" {
+			body = []byte(values.Get("payload"))
+		}
+		
+		err = json.Unmarshal(body, &message)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
 		}
 
 		channel := *defaultChan
