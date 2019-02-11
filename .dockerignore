@@ -1,0 +1,8 @@
+Honefile
+Dockerfile
+.git/
+.gitignore
+README.md
+slack2matrix
+state.json
+.drone.yaml
