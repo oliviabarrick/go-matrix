@@ -47,6 +47,8 @@ github.com/go-openapi/validate v0.18.0/go.mod h1:Uh4HdOzKt19xGIGm1qHf/ofbX1YQ4Y+
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.0 h1:Jf4mxPC/ziBnoPIdpQdPJ9OeiomAUHLvxmPRSPH9m4s=
 github.com/google/uuid v1.1.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gorilla/handlers v1.4.0 h1:XulKRWSQK5uChr4pEgSE4Tc/OcmnU9GJuSwdog/tZsA=
+github.com/gorilla/handlers v1.4.0/go.mod h1:Qkdc/uu4tH4g6mTK6auzZ766c4CA0Ng8+o/OAirnOIQ=
 github.com/justinbarrick/libolm-go v0.0.0-20171028200230-2e3c7de71be2 h1:0MtfGexAbbcCOeZ7CBuyE5qQi/VPuKa42erGeWaV+v8=
 github.com/justinbarrick/libolm-go v0.0.0-20171028200230-2e3c7de71be2/go.mod h1:pVRxMhu0Lj+SivuTqVT4MjRUGK/9Qero/EJG406pmKA=
 github.com/justinbarrick/libolm-go v0.0.0-20190210174738-44170ff1609b h1:KoWZLAOtaO/HR2B7HjmFs2W3bE7Je31PfTdQJMIW8aY=

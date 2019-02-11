@@ -9,6 +9,7 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
 	"log"
 	"os"
+	"github.com/gorilla/handlers"
 	"net/http"
 	"fmt"
 )
@@ -52,6 +53,7 @@ func main() {
 		message := SlackMessage{}
 
 		body, _ := ioutil.ReadAll(r.Body)
+		log.Println("Raw request body:", string(body))
 
 		values, err := url.ParseQuery(string(body))
 		if err == nil && values.Get("payload") != "" {
@@ -82,5 +84,5 @@ func main() {
 		return
 	})
 
-	http.ListenAndServe(":8000", nil)
+	http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
 }
