@@ -166,7 +166,7 @@ func (b *Bot) UploadKeys() error {
 		return fmt.Errorf("Error publishing: %s", err)
 	}
 
-	return err
+	return nil
 }
 
 // Join a room.
