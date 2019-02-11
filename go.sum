@@ -51,6 +51,8 @@ github.com/justinbarrick/libolm-go v0.0.0-20171028200230-2e3c7de71be2 h1:0MtfGex
 github.com/justinbarrick/libolm-go v0.0.0-20171028200230-2e3c7de71be2/go.mod h1:pVRxMhu0Lj+SivuTqVT4MjRUGK/9Qero/EJG406pmKA=
 github.com/justinbarrick/libolm-go v0.0.0-20190210174738-44170ff1609b h1:KoWZLAOtaO/HR2B7HjmFs2W3bE7Je31PfTdQJMIW8aY=
 github.com/justinbarrick/libolm-go v0.0.0-20190210174738-44170ff1609b/go.mod h1:pVRxMhu0Lj+SivuTqVT4MjRUGK/9Qero/EJG406pmKA=
+github.com/justinbarrick/libolm-go v0.0.0-20190211055944-69e211a87ea0 h1:yHk00SCNew13ttrJ7JXKiwCeVo4Advuqpk+a4VJ1MNU=
+github.com/justinbarrick/libolm-go v0.0.0-20190211055944-69e211a87ea0/go.mod h1:pVRxMhu0Lj+SivuTqVT4MjRUGK/9Qero/EJG406pmKA=
 github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 h1:2gxZ0XQIU/5z3Z3bUBu+FXuk2pFbkN6tcwi/pjyaDic=
 github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
