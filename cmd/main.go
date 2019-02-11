@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err := matrix.NewBot(*user, *pass, *accessToken, *host)
+	_, err := matrix.NewBot(*channel, *msg, *user, *pass, *accessToken, *host)
 	if err != nil {
 		log.Fatal(err)
 	}

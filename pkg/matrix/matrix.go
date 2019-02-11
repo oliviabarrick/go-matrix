@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/justinbarrick/go-matrix/pkg/client"
 	"github.com/justinbarrick/go-matrix/pkg/client/room_participation"
+	"github.com/justinbarrick/go-matrix/pkg/client/room_membership"
 	"github.com/justinbarrick/go-matrix/pkg/client/session_management"
 	"github.com/justinbarrick/go-matrix/pkg/client/end_to_end_encryption"
 	"github.com/justinbarrick/go-matrix/pkg/client/send_to_device_messaging"
@@ -30,6 +31,7 @@ type Sessions struct {
 }
 
 type Bot struct {
+	room_id     string
 	accessToken string
 	username    string
 	password    string
@@ -206,12 +208,12 @@ type DirectEvent struct {
 	Ciphertext map[string]map[string]interface{} `json:"ciphertext"`
 }
 
-func (o *Olm) EncryptedDirectEvent(session Sessions, deviceId string, event interface{}) (*DirectEvent, error) {
+func (o *Olm) EncryptedDirectEvent(session Sessions, userId, deviceId string, event interface{}) (*DirectEvent, error) {
 	contentEncoded, err := json.Marshal(map[string]interface{}{
 		"content": event,
 		"type": "m.room_key",
-		"sender": "@cbot:priv8.chat",
-		"recipient": "@j:priv8.chat",
+		"sender": userId,
+		"recipient": session.UserId,
 		"keys": map[string]string{
 			"ed25519": o.GetIdentityKeys().Ed25519,
 		},
@@ -237,6 +239,15 @@ func (o *Olm) EncryptedDirectEvent(session Sessions, deviceId string, event inte
 	}, nil
 }
 
+func (b *Bot) GetUserId() (string, error) {
+	owner, err := b.client.UserData.GetTokenOwner(nil, b)
+	if err != nil {
+		return "", err
+	}
+
+	return *owner.Payload.UserID, nil
+}
+
 func (b *Bot) GetDeviceId() (string, error) {
 	devices, err := b.client.DeviceManagement.GetDevices(nil, b)
 	if err != nil {
@@ -252,10 +263,11 @@ func (b *Bot) GetDeviceId() (string, error) {
 	return deviceId, nil
 }
 
-func NewBot(username, password, accessToken, host string) (Bot, error) {
+func NewBot(room_id, message, username, password, accessToken, host string) (Bot, error) {
 	transport := client.DefaultTransportConfig()
 
 	bot := Bot{
+		room_id:     room_id,
 		username:    username,
 		password:    password,
 		accessToken: accessToken,
@@ -281,7 +293,10 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 		return bot, fmt.Errorf("Could not get device id: %s", err)
 	}
 
-	userId := "@cbot:priv8.chat"
+	userId, err := bot.GetUserId()
+	if err != nil {
+		return bot, fmt.Errorf("Could not get user id: %s", err)
+	}
 
 	uploadKeys, err := bot.olm.UploadKeysParams(deviceId, userId)
 	if err != nil {
@@ -298,12 +313,37 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 		return bot, fmt.Errorf("Error publishing: %s", err)
 	}
 
-	destId := "@j:priv8.chat"
+	joinParams := room_membership.NewJoinRoomByIDParams()
+	joinParams.SetRoomID(bot.room_id)
+
+	_, err = bot.client.RoomMembership.JoinRoomByID(joinParams, &bot)
+	if err != nil {
+		return bot, fmt.Errorf("Error joining channel: %s", err)
+	}
+
+	roomParams := room_participation.NewGetMembersByRoomParams()
+	roomParams.SetRoomID(bot.room_id)
+
+	roomMembers, err := bot.client.RoomParticipation.GetMembersByRoom(roomParams, &bot)
+	if err != nil {
+		return bot, fmt.Errorf("Error fetching room members: %s", err)
+	}
+
+	members := []string{}
+
+	for _, chunk := range roomMembers.Payload.Chunk {
+		members = append(members, chunk.GetMembersByRoomOKBodyChunkItemsAllOf0.GetMembersByRoomOKBodyChunkItemsAllOf0AllOf0.GetMembersByRoomOKBodyChunkItemsAllOf0AllOf0AllOf0.GetMembersByRoomOKBodyChunkItemsAllOf0AllOf0AllOf0AllOf0.GetMembersByRoomOKBodyChunkItemsAllOf0AllOf0AllOf0AllOf0AllOf0.StateKey)
+	}
+
+
+	wantedDeviceKeys := map[string][]string{}
+	for _, destId := range members {
+		wantedDeviceKeys[destId] = []string{}
+	}
+
 	queryParams := end_to_end_encryption.NewQueryKeysParams()
 	queryParams.SetQuery(&models.QueryKeysParamsBody{
-		DeviceKeys: map[string][]string{
-			destId: []string{},
-		},
+		DeviceKeys: wantedDeviceKeys,
 	})
 
 	query, err := bot.client.EndToEndEncryption.QueryKeys(queryParams, &bot)
@@ -314,12 +354,14 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 	deviceKeys := query.Payload.DeviceKeys
 	wantedKeys := map[string]map[string]string{}
 
-	for destDeviceId, _ := range deviceKeys[destId] {
-		if wantedKeys[destId] == nil {
-			wantedKeys[destId] = map[string]string{}
-		}
+	for _, destId := range members {
+		for destDeviceId, _ := range deviceKeys[destId] {
+			if wantedKeys[destId] == nil {
+				wantedKeys[destId] = map[string]string{}
+			}
 
-		wantedKeys[destId][destDeviceId] = "signed_curve25519"
+			wantedKeys[destId][destDeviceId] = "signed_curve25519"
+		}
 	}
 
 	claimParams := end_to_end_encryption.NewClaimKeysParams()
@@ -360,7 +402,7 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 
 	err = bot.SendToDeviceEncrypted(sessions, map[string]interface{}{
 		"algorithm": "m.megolm.v1.aes-sha2",
-		"room_id": "!uPnoBWbuAnJfszrxDG:priv8.chat",
+		"room_id": bot.room_id,
 		"session_id": groupSession.GetSessionID(),
 		"session_key": groupSession.GetSessionKey(),
 	})
@@ -370,19 +412,19 @@ func NewBot(username, password, accessToken, host string) (Bot, error) {
 
 	log.Println("EncryptedSend()")
 
-	bot.EncryptedSend(groupSession, "!uPnoBWbuAnJfszrxDG:priv8.chat", map[string]interface{}{
+	bot.EncryptedSend(groupSession, bot.room_id, map[string]interface{}{
 		"type": "m.room.message",
 		"content": map[string]string{
-			"body": "hi!",
+			"body": message,
 			"msgtype": "m.text",
 		},
-		"room_id": "!uPnoBWbuAnJfszrxDG:priv8.chat",
+		"room_id": bot.room_id,
 	})
 	if err != nil {
 		return bot, err
 	}
 
-	log.Println("Sent message to !uPnoBWbuAnJfszrxDG:priv8.chat")
+	log.Println("Sent message to ", bot.room_id)
 	return bot, nil
 }
 
@@ -420,13 +462,18 @@ func (b *Bot) SendToDeviceEncrypted(sessions []Sessions, event interface{}) erro
 		return fmt.Errorf("Could not get device id: %s", err)
 	}
 
+	userId, err := b.GetUserId()
+	if err != nil {
+		return fmt.Errorf("Could not get user id: %s", err)
+	}
+
 	params := send_to_device_messaging.NewSendToDeviceParams()
 	params.SetEventType("m.room.encrypted")
 
 	messages := map[string]map[string]interface{}{}
 
 	for _, session := range sessions {
-		encrypted, err := b.olm.EncryptedDirectEvent(session, deviceId, event)
+		encrypted, err := b.olm.EncryptedDirectEvent(session, userId, deviceId, event)
 		if err != nil {
 			return fmt.Errorf("Could not encrypt event: %s", err)
 		}

@@ -26,6 +26,8 @@ type GetMembersByRoomOKBodyChunkItemsAllOf0AllOf0AllOf0AllOf0AllOf0 struct {
 	// The type of event. This SHOULD be namespaced similar to Java package naming conventions e.g. 'com.example.subdomain.event.type'
 	// Required: true
 	Type *string `json:"type"`
+
+	StateKey string `json:"state_key"`
 }
 
 // Validate validates this get members by room o k body chunk items all of0 all of0 all of0 all of0 all of0
