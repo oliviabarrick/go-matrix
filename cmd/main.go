@@ -22,15 +22,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err := matrix.NewBot(*channel, *msg, *user, *pass, *accessToken, *host)
+	bot, err := matrix.NewBot(*user, *pass, *accessToken, *host)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-/*
-	err = bot.Send(*channel, *msg)
+	err = bot.SendEncrypted(*channel, *msg)
 	if err != nil {
 		log.Fatal(err)
 	}
-*/
+
+	log.Println("Sent message to ", *channel)
 }
