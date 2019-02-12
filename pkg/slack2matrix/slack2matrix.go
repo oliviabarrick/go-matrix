@@ -80,7 +80,7 @@ func (s *SlackMessage) ToHTML() (string, error) {
 
 	body := ""
 	if mainTitle != "" {
-		body = fmt.Sprintf("<h3>%s</h3>", mainTitle)
+		body = fmt.Sprintf("<h5>%s</h5>", mainTitle)
 	}
 
 	if mainText != "" {
@@ -92,7 +92,7 @@ func (s *SlackMessage) ToHTML() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		body = fmt.Sprintf("%s<div>%s</div>", body, attachmentBody)
+		body += attachmentBody
 	}
 
 	return body, nil
@@ -111,7 +111,7 @@ func (s *SlackAttachment) ToHTML() (string, error) {
 
 	body := ""
 	if mainTitle != "" {
-		body = fmt.Sprintf("<h4>%s</h4>", mainTitle)
+		body = fmt.Sprintf("<h6>%s</h6>", mainTitle)
 	}
 
 	return fmt.Sprintf("%s<div>%s</div>", body, mainText), nil
