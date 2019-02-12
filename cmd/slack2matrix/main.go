@@ -46,6 +46,8 @@ func main() {
 		channel := *defaultChan
 		if message.Channel != "" {
 			channel = message.Channel
+		} else if r.URL.Query().Get("channel") != "" {
+			channel = r.URL.Query().Get("channel")
 		}
 
 		webhookBody, err := message.ToHTML()
