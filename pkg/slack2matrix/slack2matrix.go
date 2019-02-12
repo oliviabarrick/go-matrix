@@ -83,7 +83,9 @@ func (s *SlackMessage) ToHTML() (string, error) {
 		body = fmt.Sprintf("<h3>%s</h3>", mainTitle)
 	}
 
-	body = fmt.Sprintf("%s%s<br>", body, mainText)
+	if mainText != "" {
+		body = fmt.Sprintf("%s%s<br>", body, mainText)
+	}
 
 	for _, attachment := range s.Attachments {
 		attachmentBody, err := attachment.ToHTML()
