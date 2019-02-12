@@ -61,14 +61,20 @@ You can then send a message through the gateway:
 docker run --env SLACK_WEBHOOK_URL=http://172.17.0.1:8000 suhlig/slack-message hi
 ```
 
-# Deploying webhook service
+# Deploying webhook service to Kubernetes
 
-To deploy the slack2webhook service, login or register:
+To deploy the slack2webhook service to Kubernetes, login or register:
 
 ```
 matrixctl login matrix.org user password
 ```
 
-You should now have a configuration file at `~/.matrix/config.json`.
+Now upload the configuration file to Kubernetes:
 
-Deploy the docker image along with the configuration file.
+```
+kubectl create secret slack2matrix --from-file=~/.matrix/config.json
+```
+
+Now deploy the configuration: `kubectl apply -f deploy/kubernetes.yaml`.
+
+It should now be reachable at `slack2matrix.default.svc.cluster.local:8000`.

@@ -1,6 +1,6 @@
 module github.com/justinbarrick/go-matrix
 
-// replace github.com/justinbarrick/libolm-go => /home/justin/usr/src/github.com/justinbarrick/libolm-go
+replace github.com/justinbarrick/libolm-go => /home/justin/usr/src/github.com/justinbarrick/libolm-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1

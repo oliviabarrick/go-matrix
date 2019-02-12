@@ -2,6 +2,6 @@ pipeline:
   publish:
     image: plugins/docker
     secrets: [ DOCKER_USERNAME, DOCKER_PASSWORD ]
-    repo: justinbarrick/slack2matrix
+    repo: justinbarrick/matrixctl
     tags:
     - ${DRONE_BRANCH}-${DRONE_COMMIT_SHA:0:7}
