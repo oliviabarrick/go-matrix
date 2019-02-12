@@ -1,38 +1,18 @@
-package main
+package api
 
 import (
-	"io/ioutil"
-	"flag"
-//	"github.com/davecgh/go-spew/spew"
+	"fmt"
+	"github.com/gorilla/handlers"
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
 	"github.com/justinbarrick/go-matrix/pkg/slack2matrix"
+	"io/ioutil"
 	"log"
-	"os"
-	"github.com/gorilla/handlers"
 	"net/http"
-	"fmt"
+	"os"
 )
 
-func main() {
-	user := flag.String("user", os.Getenv("MATRIX_USER"), "Bot username.")
-	pass := flag.String("pass", os.Getenv("MATRIX_PASS"), "Bot password.")
-	host := flag.String("host", os.Getenv("MATRIX_HOST"), "Bot hostname.")
-	defaultChan := flag.String("chan", os.Getenv("MATRIX_CHAN"), "Bot chan.")
-	accessToken := flag.String("token", os.Getenv("MATRIX_TOKEN"), "Bot token.")
-
-	flag.Parse()
-
-	if ((*user == "" || *pass == "") && *accessToken == "") || *host == "" {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	bot, err := matrix.NewBot(*user, *pass, *accessToken, *host)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+func Api(bot matrix.Bot, defaultChannel string) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 		log.Println("Raw request body:", string(body))
 
@@ -43,7 +23,7 @@ func main() {
 			return
 		}
 
-		channel := *defaultChan
+		channel := defaultChannel
 		if message.Channel != "" {
 			channel = message.Channel
 		} else if r.URL.Query().Get("channel") != "" {
@@ -69,5 +49,6 @@ func main() {
 		return
 	})
 
+	log.Println("Starting slack2matrix server on :8000.")
 	http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
 }

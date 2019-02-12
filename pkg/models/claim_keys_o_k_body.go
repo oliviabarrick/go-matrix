@@ -12,7 +12,7 @@ import (
 )
 
 type SignedOneTimeKey struct {
-	Key string `json:"key"`
+	Key        string                       `json:"key"`
 	Signatures map[string]map[string]string `json:"signatures"`
 }
 

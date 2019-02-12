@@ -2,17 +2,17 @@ package slack2matrix
 
 import (
 	"encoding/json"
-	"net/url"
 	"fmt"
-	"regexp"
-	"strings"
 	"github.com/russross/blackfriday"
 	"gopkg.in/go-playground/colors.v1"
+	"net/url"
+	"regexp"
+	"strings"
 )
 
 var (
 	urlRe = regexp.MustCompile("<(.*?)[|](.*?)>")
-	pRe = regexp.MustCompile("(?s)^<p>(.*?)</p>$")
+	pRe   = regexp.MustCompile("(?s)^<p>(.*?)</p>$")
 )
 
 // Represents a slack message sent to the API
@@ -36,7 +36,7 @@ type SlackAttachment struct {
 
 type MarkdownString string
 
-func (m MarkdownString) ReplaceLinks() (string) {
+func (m MarkdownString) ReplaceLinks() string {
 	links := urlRe.FindAllStringSubmatch(string(m), -1)
 
 	final := string(m)
@@ -64,7 +64,7 @@ func ParseSlackWebhook(body []byte) (SlackMessage, error) {
 	if err == nil && values.Get("payload") != "" {
 		body = []byte(values.Get("payload"))
 	}
-		
+
 	err = json.Unmarshal(body, &message)
 	return message, err
 }
@@ -129,9 +129,9 @@ func ColorSpan(color string) (string, error) {
 	span := ""
 
 	knownColors := map[string]string{
-		"danger": "#a30200",
+		"danger":  "#a30200",
 		"warning": "#d69d38",
-		"good": "#33cc99",
+		"good":    "#33cc99",
 	}
 
 	if color != "" {

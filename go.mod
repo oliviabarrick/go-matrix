@@ -1,6 +1,6 @@
 module github.com/justinbarrick/go-matrix
 
-// replace github.com/justinbarrick/libolm-go => /home/user/.go/src/github.com/justinbarrick/libolm-go
+// replace github.com/justinbarrick/libolm-go => /home/justin/usr/src/github.com/justinbarrick/libolm-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -17,6 +17,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.1 // indirect
 	github.com/russross/blackfriday v2.0.0+incompatible
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/viper v1.3.1
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/tent/canonical-json-go v0.0.0-20130607151641-96e4ba3a7613
