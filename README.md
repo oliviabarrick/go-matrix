@@ -9,7 +9,7 @@ Use the Docker image `justinbarrick/matrixctl:latest`
 
 ## Download binary
 
-Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.1/matrixctl -O && chmod +x matrixctl`
+Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.1/matrixctl -O && chmod +x matrixctl`.
 
 ## Build from source
 
