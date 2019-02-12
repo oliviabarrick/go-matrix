@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"github.com/russross/blackfriday"
+	"gopkg.in/go-playground/colors.v1"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 // Represents a slack message sent to the API
 type SlackMessage struct {
 	Channel     string            `json:"channel"`
+	Color       string            `json:"color"`
 	IconEmoji   string            `json:"icon_emoji"`
 	Username    string            `json:"username"`
 	Text        MarkdownString    `json:"text"`
@@ -26,7 +28,7 @@ type SlackMessage struct {
 
 // Represents a section of a slack message that is sent to the API
 type SlackAttachment struct {
-	Color     string `json:"color"`
+	Color     string         `json:"color"`
 	Title     MarkdownString `json:"title"`
 	TitleLink MarkdownString `json:"title_link"`
 	Text      MarkdownString `json:"text"`
@@ -83,8 +85,13 @@ func (s *SlackMessage) ToHTML() (string, error) {
 		body = fmt.Sprintf("<h5>%s</h5>", mainTitle)
 	}
 
+	color, err := ColorSpan(s.Color)
+	if err != nil {
+		return "", err
+	}
+
 	if mainText != "" {
-		body = fmt.Sprintf("%s<div>%s</div>", body, mainText)
+		body = fmt.Sprintf("%s<div>%s%s</div>", body, color, mainText)
 	}
 
 	for _, attachment := range s.Attachments {
@@ -114,5 +121,32 @@ func (s *SlackAttachment) ToHTML() (string, error) {
 		body = fmt.Sprintf("<h6>%s</h6>", mainTitle)
 	}
 
-	return fmt.Sprintf("%s<div>%s</div>", body, mainText), nil
+	color, err := ColorSpan(s.Color)
+	return fmt.Sprintf("%s<div>%s%s</div>", body, color, mainText), err
+}
+
+func ColorSpan(color string) (string, error) {
+	span := ""
+
+	knownColors := map[string]string{
+		"danger": "#a30200",
+		"warning": "#d69d38",
+		"good": "#33cc99",
+	}
+
+	if color != "" {
+		if knownColors[color] != "" {
+			color = knownColors[color]
+		}
+
+		parsedColor, err := colors.Parse(color)
+		if err != nil {
+			return "", err
+		}
+
+		hexColor := parsedColor.ToRGB().ToHEX()
+		span = fmt.Sprintf("<span data-mx-bg-color=\"%s\">&nbsp;</span>&nbsp;", hexColor)
+	}
+
+	return span, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/client/end_to_end_encryption"
 	"github.com/justinbarrick/go-matrix/pkg/client/send_to_device_messaging"
 	"github.com/justinbarrick/go-matrix/pkg/models"
+	"jaytaylor.com/html2text"
 
 	"encoding/json"
 	"strings"
@@ -363,11 +364,16 @@ func (b *Bot) Send(channel, message string) error {
 		return err
 	}
 
+	unformatted, err := html2text.FromString(message, html2text.Options{})
+	if err != nil {
+		return err
+	}
+
 	return b.SendEvent(channel, "m.room.message", map[string]string{
 		"msgtype": "m.text",
 		"formatted_body": message,
 		"format": "org.matrix.custom.html",
-		"body": message,
+		"body": unformatted,
 	})
 }
 
@@ -378,8 +384,13 @@ func (b *Bot) SendEncrypted(channel, message string) error {
 		return err
 	}
 
+	unformatted, err := html2text.FromString(message, html2text.Options{})
+	if err != nil {
+		return err
+	}
+
 	return b.SendEncryptedEvent(channel, "m.room.message", map[string]string{
-		"body": message,
+		"body": unformatted,
 		"formatted_body": message,
 		"msgtype": "m.text",
 		"format": "org.matrix.custom.html",
