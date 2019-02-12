@@ -1,34 +1,17 @@
 package main
 
 import (
-	"net/url"
 	"io/ioutil"
 	"flag"
 //	"github.com/davecgh/go-spew/spew"
-	"encoding/json"
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
+	"github.com/justinbarrick/go-matrix/pkg/slack2matrix"
 	"log"
 	"os"
 	"github.com/gorilla/handlers"
 	"net/http"
 	"fmt"
 )
-
-// Represents a slack message sent to the API
-type SlackMessage struct {
-	Channel     string            `json:"channel"`
-	IconEmoji   string            `json:"icon_emoji"`
-	Username    string            `json:"username"`
-	Attachments []SlackAttachment `json:"attachments"`
-}
-
-// Represents a section of a slack message that is sent to the API
-type SlackAttachment struct {
-	Color     string `json:"color"`
-	Title     string `json:"title"`
-	TitleLink string `json:"title_link"`
-	Text      string `json:"text"`
-}
 
 func main() {
 	user := flag.String("user", os.Getenv("MATRIX_USER"), "Bot username.")
@@ -50,17 +33,10 @@ func main() {
 	}
 
 	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-		message := SlackMessage{}
-
 		body, _ := ioutil.ReadAll(r.Body)
 		log.Println("Raw request body:", string(body))
 
-		values, err := url.ParseQuery(string(body))
-		if err == nil && values.Get("payload") != "" {
-			body = []byte(values.Get("payload"))
-		}
-		
-		err = json.Unmarshal(body, &message)
+		message, err := slack2matrix.ParseSlackWebhook(body)
 		if err != nil {
 			log.Println("Error unmarshalling message:", err.Error())
 			http.Error(w, err.Error(), 400)
@@ -72,15 +48,20 @@ func main() {
 			channel = message.Channel
 		}
 
-		for _, attachment := range message.Attachments {
-			err = bot.SendEncrypted(channel, attachment.Text)
-			if err != nil {
-				log.Println("Error sending message:", err.Error())
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			log.Printf("Sent message to '%s': %s.", channel, attachment.Text)
+		webhookBody, err := message.ToHTML()
+		if err != nil {
+			log.Println("Error marshalling message to HTML:", err.Error())
+			http.Error(w, err.Error(), 500)
+			return
 		}
+
+		err = bot.SendEncrypted(channel, webhookBody)
+		if err != nil {
+			log.Println("Error sending message:", err.Error())
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		log.Printf("Sent message to '%s': %s.", channel, webhookBody)
 
 		fmt.Fprintf(w, "Welcome to my website!")
 		return

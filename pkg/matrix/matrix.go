@@ -334,14 +334,19 @@ func (b *Bot) SendEvent(channel string, eventType string, payload interface{}) e
 }
 
 // Send an encrypted event to a channel.
-func (b *Bot) SendEncryptedEvent(session libolm.Encrypter, channel string, eventType string, message interface{}) error {
+func (b *Bot) SendEncryptedEvent(channel string, eventType string, message interface{}) error {
+	groupSession, err := b.HandshakeRoom(channel)
+	if err != nil {
+		return err
+	}
+
 	payload := map[string]interface{}{
 		"type": eventType,
 		"content": message,
 		"room_id": channel,
 	}
 
-	encrypted, err := b.EncryptedEvent(session, payload)
+	encrypted, err := b.EncryptedEvent(groupSession, payload)
 	if err != nil {
 		return fmt.Errorf("Could not encrypt event: %s", err)
 	}
@@ -371,12 +376,7 @@ func (b *Bot) SendEncrypted(channel, message string) error {
 		return err
 	}
 
-	groupSession, err := b.HandshakeRoom(channel)
-	if err != nil {
-		return err
-	}
-
-	return b.SendEncryptedEvent(groupSession, channel, "m.room.message", map[string]string{
+	return b.SendEncryptedEvent(channel, "m.room.message", map[string]string{
 		"body": message,
 		"formatted_body": message,
 		"msgtype": "m.text",
