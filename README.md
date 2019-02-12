@@ -3,7 +3,17 @@ non-encrypted messages. It also includes a slack2matrix gateway for rewriting sl
 
 # Installation
 
-Either use the Docker image `justinbarrick/slack2matrix` or install the command with `go get github.com/justinbarrick/go-matrix/cmd/matrixctl`.
+## Docker
+
+Use the Docker image `justinbarrick/matrixctl:latest`
+
+## Download binary
+
+Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.1/matrixctl -O && chmod +x matrixctl`
+
+## Build from source
+
+Build the command with `go get github.com/justinbarrick/go-matrix/cmd/matrixctl`.
 
 # Usage
 
