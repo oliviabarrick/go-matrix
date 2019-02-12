@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
+	"log"
 	libolm "github.com/justinbarrick/libolm-go"
 )
 
@@ -100,6 +101,7 @@ func (b *Bot) Login() error {
 	}
 
 	b.accessToken = loginOk.Payload.AccessToken
+	log.Println("Got access token:", b.accessToken)
 	return nil
 }
 
