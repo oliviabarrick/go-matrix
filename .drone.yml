@@ -1,4 +1,7 @@
-pipeline:
+kind: pipeline
+name: default
+
+steps:
   - name: publish-dev
     image: plugins/docker
     environment:
