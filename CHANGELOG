@@ -1,3 +1,8 @@
+Release v0.0.5:
+
+cc92b30 (Justin Barrick): if there is a title, set the color on the title instead
+3c91928 (Justin Barrick): fix case where webhook source prepends # to channel names.
+
 Release v0.0.4:
 
 aa1fd52 (Justin Barrick): fix release issues
