@@ -1,7 +1,11 @@
-.PHONY: generate-client
+%-release:
+	@echo -e "Release $$(git semver --dryrun $*):\n" > /tmp/CHANGELOG
+	@echo -e "$$(git log --pretty=format:"%h (%an): %s" $$(git describe --tags --abbrev=0 @^)..@)\n" >> /tmp/CHANGELOG
+	@cat /tmp/CHANGELOG CHANGELOG > /tmp/NEW_CHANGELOG || :
+	@mv /tmp/NEW_CHANGELOG CHANGELOG
 
-pkg/api-docs.json:
-	curl -Lo pkg/api-docs.json https://matrix.org/docs/api/client-server/json/api-docs.json
+	@sed -i 's#image: justinbarrick/matrixctl:.*#image: justinbarrick/matrixctl:$(shell git semver --dryrun $*)#g' deploy/kubernetes.yaml
 
-generate-client: pkg/api-docs.json
-	docker run --rm -it -e GOPATH -v $(shell pwd)/pkg/:$(shell pwd)/pkg/ -w $(shell pwd)/pkg/ quay.io/goswagger/swagger:0.14.0 generate client -f api-docs.json
+	@git add CHANGELOG deploy/kubernetes.yaml
+	@git commit -m "Release $(shell git semver --dryrun $*)"
+	@git semver $*
