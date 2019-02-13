@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func Api(bot matrix.Bot, defaultChannel string) {
@@ -29,6 +30,14 @@ func Api(bot matrix.Bot, defaultChannel string) {
 		} else if r.URL.Query().Get("channel") != "" {
 			channel = r.URL.Query().Get("channel")
 		}
+
+		if channel == "" {
+			log.Println("Channel not provided.")
+			http.Error(w, fmt.Sprintf("Channel not provided"), 500)
+			return
+		}
+
+		channel = fmt.Sprintf("!%s", strings.TrimLeft(channel, "#!"))
 
 		webhookBody, err := message.ToHTML()
 		if err != nil {
