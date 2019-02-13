@@ -13,6 +13,8 @@ steps:
       repo: justinbarrick/matrixctl
       tags:
       - ${DRONE_BRANCH}-${DRONE_COMMIT_SHA:0:7}
+    when:
+      event: push
 
   - name: publish
     image: plugins/docker
@@ -46,7 +48,7 @@ steps:
         {{/success}}
     when:
       status: [success, failure]
-      event: [push,tag]
+      event: push
 
   - name: slack2
     image: plugins/slack
@@ -58,10 +60,15 @@ steps:
       username: Matrixctl Release Bot
       icon_url: https://i.imgur.com/B7Tk2Xf.png
       template: >
-        matrixctl deployed!
+        {{#success build.status}}
+          matrixctl released!
 
-        Released ${DRONE_TAG} to <https://github.com/{{repo.owner}}/{{repo.name}}/releases/tag/${DRONE_TAG}|Github>.
+          Released ${DRONE_TAG} to <https://github.com/{{repo.owner}}/{{repo.name}}/releases/tag/${DRONE_TAG}|Github>.
   
-        Pushed <https://hub.docker.com/r/{{repo.owner}}/{{repo.name}}|{{repo.owner}}/{{repo.name}}:${DRONE_TAG}> to Dockerhub.
+          Pushed <https://hub.docker.com/r/{{repo.owner}}/{{repo.name}}|{{repo.owner}}/{{repo.name}}:${DRONE_TAG}> to Dockerhub.
+        {{else}}
+          Release ${DRONE_TAG} <{{build.link}}|#{{build.number}}> for <https://github.com/{{repo.owner}}/{{repo.name}}/tree/{{build.commit}}|{{repo.name}}#{{build.branch}}> by {{build.author}} failed.
+        {{/success}}
     when:
+      status: [success, failure]
       event: tag
