@@ -17,7 +17,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: slack2matrix
-        image: justinbarrick/matrixctl:v0.0.3
+        image: justinbarrick/matrixctl:v0.0.4
         env:
         - name: MATRIX_CONFIG
           value: /app/config.json
