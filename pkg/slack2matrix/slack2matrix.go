@@ -80,14 +80,15 @@ func (s *SlackMessage) ToHTML() (string, error) {
 		return "", err
 	}
 
-	body := ""
-	if mainTitle != "" {
-		body = fmt.Sprintf("<h5>%s</h5>", mainTitle)
-	}
-
 	color, err := ColorSpan(s.Color)
 	if err != nil {
 		return "", err
+	}
+
+	body := ""
+	if mainTitle != "" {
+		body = fmt.Sprintf("<div>%s<b>%s</b></div>", color, mainTitle)
+		color = ""
 	}
 
 	if mainText != "" {
@@ -116,12 +117,14 @@ func (s *SlackAttachment) ToHTML() (string, error) {
 		return "", err
 	}
 
+	color, err := ColorSpan(s.Color)
+
 	body := ""
 	if mainTitle != "" {
-		body = fmt.Sprintf("<h6>%s</h6>", mainTitle)
+		body = fmt.Sprintf("<div>%s<b>%s</b></div>", color, mainTitle)
+		color = ""
 	}
 
-	color, err := ColorSpan(s.Color)
 	return fmt.Sprintf("%s<div>%s%s</div>", body, color, mainText), err
 }
 
