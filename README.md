@@ -79,10 +79,10 @@ To deploy the slack2webhook service to Kubernetes, login or register:
 matrixctl login matrix.org user password
 ```
 
-Now upload the configuration file to Kubernetes:
+Now add the file as a secret to your deployment YAML file:
 
 ```
-kubectl create secret slack2matrix --from-file=~/.matrix/config.json
+kubectl create secret generic slack2matrix --from-file=$HOME/.matrix/config.json -o yaml --dry-run >> deploy/kubernetes.yaml
 ```
 
 Now deploy the configuration: `kubectl apply -f deploy/kubernetes.yaml`.

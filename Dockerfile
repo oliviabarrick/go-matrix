@@ -15,6 +15,8 @@ RUN apt-get install -y ca-certificates
 
 WORKDIR /app
 
-COPY --from=0 /app/matrixctl /app/matrixctl
-
+ENV MATRIX_CONFIG=/app/config.json
 ENTRYPOINT ["/app/matrixctl"]
+CMD ["slack2matrix"]
+
+COPY --from=0 /app/matrixctl /app/matrixctl
