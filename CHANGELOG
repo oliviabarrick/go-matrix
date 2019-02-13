@@ -1,0 +1,9 @@
+Release v0.0.2:
+
+8257290 (Justin Barrick): fix .drone.yml formatting
+c97f836 (Justin Barrick): add release flow
+6c8db0e (Justin Barrick): update deployment
+3844b3c (Justin Barrick): update libolm
+8576b75 (Justin): Update README.md
+8bc42c1 (Justin Barrick): better readme
+
