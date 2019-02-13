@@ -128,14 +128,18 @@ var msgCmd = &cobra.Command{
 var slack2matrixCmd = &cobra.Command{
 	Use:   "slack2matrix [default roomId]",
 	Short: "Starts a slack2matrix endpoint that can receive slack webhooks and forward them to matrix.",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		bot, err := matrix.Unserialize(viper.Get("config").(string))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		api.Api(bot, args[0])
+		channel := os.Getenv("MATRIX_CHAN")
+		if len(args) > 0 {
+			channel = args[1]
+		}
+		api.Api(bot, channel)
 	},
 }
 
