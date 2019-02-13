@@ -5,11 +5,11 @@ non-encrypted messages. It also includes a slack2matrix gateway for rewriting sl
 
 ## Docker
 
-Use the Docker image `justinbarrick/matrixctl:latest`
+Use the Docker image `justinbarrick/matrixctl:v0.0.2`
 
 ## Download binary
 
-Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.1/matrixctl -O && chmod +x matrixctl`.
+Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.2/matrixctl -O && chmod +x matrixctl`.
 
 ## Build from source
 
@@ -88,3 +88,26 @@ kubectl create secret generic slack2matrix --from-file=$HOME/.matrix/config.json
 Now deploy the configuration: `kubectl apply -f deploy/kubernetes.yaml`.
 
 It should now be reachable at `slack2matrix.default.svc.cluster.local:8000`.
+
+# Versioning
+
+Matrixctl follows semver for versioning, but also publishes development images tagged
+with `$BRANCH-$COMMIT`.
+
+If you use [flux](https://github.com/weaveworks/flux), to track release images:
+
+```
+fluxctl policy -c default:deployment/slack2matrix --tag-all='v0*'
+```
+
+To track the latest pre-release images:
+
+```
+fluxctl policy -c default:deployment/slack2matrix --tag-all='master-*'
+```
+
+And then you can automate it:
+
+```
+fluxctl automate -c default:deployment/slack2matrix
+```
