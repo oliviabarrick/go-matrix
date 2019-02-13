@@ -1,6 +1,6 @@
 module github.com/justinbarrick/go-matrix
 
-replace github.com/justinbarrick/libolm-go => /home/justin/usr/src/github.com/justinbarrick/libolm-go
+//replace github.com/justinbarrick/libolm-go => /home/justin/usr/src/github.com/justinbarrick/libolm-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -11,7 +11,7 @@ require (
 	github.com/go-openapi/validate v0.18.0
 	github.com/google/uuid v1.1.0
 	github.com/gorilla/handlers v1.4.0
-	github.com/justinbarrick/libolm-go v0.0.0-20190211055944-69e211a87ea0
+	github.com/justinbarrick/libolm-go v0.0.0-20190212230225-6c1e7fc69b6e
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/notafile/libolm-go v0.0.0-20171028200230-2e3c7de71be2
 	github.com/olekukonko/tablewriter v0.0.1 // indirect
