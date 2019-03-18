@@ -139,7 +139,7 @@ var slack2matrixCmd = &cobra.Command{
 		if len(args) > 0 {
 			channel = args[1]
 		}
-		api.Api(bot, channel)
+		api.Api(bot, channel, viper.Get("certPath").(string), viper.Get("keyPath").(string))
 	},
 }
 
@@ -156,10 +156,14 @@ func main() {
 	rootCmd.PersistentFlags().StringP("config", "c", defaultConfig, "authentication configuration to load")
 	logoutCmd.PersistentFlags().BoolP("all", "a", false, "logout all devices")
 	msgCmd.PersistentFlags().BoolP("encrypted", "e", false, "send an encrypted message")
+	slack2matrixCmd.PersistentFlags().StringP("cert-path", "", "", "path to TLS certificate")
+	slack2matrixCmd.PersistentFlags().StringP("key-path", "", "", "path to TLS key")
 
 	viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 	viper.BindPFlag("all", logoutCmd.PersistentFlags().Lookup("all"))
 	viper.BindPFlag("encrypted", msgCmd.PersistentFlags().Lookup("encrypted"))
+	viper.BindPFlag("certPath", slack2matrixCmd.PersistentFlags().Lookup("cert-path"))
+	viper.BindPFlag("keyPath", slack2matrixCmd.PersistentFlags().Lookup("key-path"))
 
 	rootCmd.AddCommand(registerCmd)
 	rootCmd.AddCommand(loginCmd)

@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func Api(bot matrix.Bot, defaultChannel string) {
+func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 		log.Println("Raw request body:", string(body))
@@ -58,6 +58,11 @@ func Api(bot matrix.Bot, defaultChannel string) {
 		return
 	})
 
-	log.Println("Starting slack2matrix server on :8000.")
-	http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
+	if certPath != "" && keyPath != "" {
+		log.Println("Starting slack2matrix with HTTPS on :8443.")
+		http.ListenAndServeTLS(":8443", certPath, keyPath, handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
+	} else {
+		log.Println("Starting slack2matrix server on :8000.")
+		http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
+	}
 }
