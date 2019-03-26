@@ -15,6 +15,7 @@ steps:
         from_secret: DOCKER_PASSWORD
       DOCKER_BUILDKIT: "1"
     settings:
+      experimental: true
       repo: justinbarrick/matrixctl
       tags:
       - ${DRONE_BRANCH}-${DRONE_COMMIT_SHA:0:7}
@@ -30,6 +31,7 @@ steps:
         from_secret: DOCKER_PASSWORD
       DOCKER_BUILDKIT: "1"
     settings:
+      experimental: true
       repo: justinbarrick/matrixctl
       tags:
         - ${DRONE_TAG}
