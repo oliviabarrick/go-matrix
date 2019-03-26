@@ -13,6 +13,7 @@ steps:
         from_secret: DOCKER_USERNAME
       DOCKER_PASSWORD:
         from_secret: DOCKER_PASSWORD
+      DOCKER_BUILDKIT: "1"
     settings:
       repo: justinbarrick/matrixctl
       tags:
@@ -27,6 +28,7 @@ steps:
         from_secret: DOCKER_USERNAME
       DOCKER_PASSWORD:
         from_secret: DOCKER_PASSWORD
+      DOCKER_BUILDKIT: "1"
     settings:
       repo: justinbarrick/matrixctl
       tags:
