@@ -6,7 +6,8 @@ RUN apt-get install -y git golang-go
 WORKDIR /app
 COPY . .
 
-RUN go build ./cmd/matrixctl
+ENV GOPATH=/go
+RUN --mount=type=cache,target=/go go build ./cmd/matrixctl
 
 FROM debian:sid
 
