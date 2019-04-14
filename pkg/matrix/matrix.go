@@ -68,6 +68,34 @@ type Bot struct {
 	Server      string         `json:"server"`
 	Olm         *libolm.Matrix `json:"olm"`
 	client      *client.MatrixClientServer
+	shookDevices map[string]bool
+	groupSession *libolm.GroupSession
+	sessions []libolm.UserSession
+}
+
+func (b *Bot) getShookDevices() map[string]bool {
+	if b.shookDevices == nil {
+		b.shookDevices = map[string]bool{}
+	}
+
+	return b.shookDevices
+}
+
+func (b *Bot) getGroupSession() libolm.GroupSession {
+	if b.groupSession == nil {
+		groupSession := libolm.CreateOutboundGroupSession()
+		b.groupSession = &groupSession
+	}
+
+	return *b.groupSession
+}
+
+func (b *Bot) getSessions() []libolm.UserSession {
+	if b.sessions == nil {
+		b.sessions = []libolm.UserSession{}
+	}
+
+	return b.sessions
 }
 
 // Initialize a new bot instance. Most provide either username+password or accessToken.
@@ -268,6 +296,10 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 
 	for _, destId := range members {
 		for destDeviceId, _ := range deviceKeys[destId] {
+			if b.getShookDevices()[destDeviceId] {
+				continue
+			}
+
 			if wantedKeys[destId] == nil {
 				wantedKeys[destId] = map[string]string{}
 			}
@@ -291,15 +323,11 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 
 // Initialize an outbound group session for a room and send the session key to every
 // member of the channel so that we can send encrypted events.
-func (b *Bot) HandshakeRoom(room_id string) (libolm.GroupSession, error) {
-	groupSession := libolm.CreateOutboundGroupSession()
-
+func (b *Bot) HandshakeRoom(room_id string) error {
 	oneTimeKeys, deviceKeys, err := b.ClaimRoomMemberKeys(room_id)
 	if err != nil {
-		return groupSession, err
+		return err
 	}
-
-	sessions := []libolm.UserSession{}
 
 	for destId, destDevices := range oneTimeKeys.OneTimeKeys {
 		for destDeviceId, keys := range destDevices {
@@ -310,22 +338,24 @@ func (b *Bot) HandshakeRoom(room_id string) (libolm.GroupSession, error) {
 
 				session := libolm.CreateOutboundSession(b.Olm.GetAccount(), destKey, destOneTimeKey)
 
-				sessions = append(sessions, libolm.UserSession{
+				b.sessions = append(b.getSessions(), libolm.UserSession{
 					Session:    session,
 					UserId:     destId,
 					DeviceId:   destDeviceId,
 					DeviceKey:  destKey,
 					Ed25519Key: ed25519Key,
 				})
+
+				b.getShookDevices()[destDeviceId] = true
 			}
 		}
 	}
 
-	return groupSession, b.SendToDeviceEncrypted(sessions, map[string]interface{}{
+	return b.SendToDeviceEncrypted(map[string]interface{}{
 		"algorithm":   "m.megolm.v1.aes-sha2",
 		"room_id":     room_id,
-		"session_id":  groupSession.GetSessionID(),
-		"session_key": groupSession.GetSessionKey(),
+		"session_id":  b.getGroupSession().GetSessionID(),
+		"session_key": b.getGroupSession().GetSessionKey(),
 	})
 }
 
@@ -371,8 +401,7 @@ func (b *Bot) SendEvent(channel string, eventType string, payload interface{}) e
 
 // Send an encrypted event to a channel.
 func (b *Bot) SendEncryptedEvent(channel string, eventType string, message interface{}) error {
-	groupSession, err := b.HandshakeRoom(channel)
-	if err != nil {
+	if err := b.HandshakeRoom(channel); err != nil {
 		return err
 	}
 
@@ -382,7 +411,7 @@ func (b *Bot) SendEncryptedEvent(channel string, eventType string, message inter
 		"room_id": channel,
 	}
 
-	encrypted, err := b.EncryptedEvent(groupSession, payload)
+	encrypted, err := b.EncryptedEvent(b.getGroupSession(), payload)
 	if err != nil {
 		return fmt.Errorf("Could not encrypt event: %s", err)
 	}
@@ -463,13 +492,13 @@ func (b *Bot) EncryptedDirectEvent(session libolm.UserSession, event interface{}
 }
 
 // Send a message to a specific device. Primarily used for sending room_key messages.
-func (b *Bot) SendToDeviceEncrypted(sessions []libolm.UserSession, event interface{}) error {
+func (b *Bot) SendToDeviceEncrypted(event interface{}) error {
 	params := send_to_device_messaging.NewSendToDeviceParams()
 	params.SetEventType("m.room.encrypted")
 
 	messages := map[string]map[string]interface{}{}
 
-	for _, session := range sessions {
+	for _, session := range b.getSessions() {
 		encrypted, err := b.EncryptedDirectEvent(session, event)
 		if err != nil {
 			return fmt.Errorf("Could not encrypt event: %s", err)
