@@ -1,3 +1,10 @@
+Release v0.0.8:
+
+4fe6eaa (Justin Barrick): fix session caching
+e5b39ee (Justin Barrick): gofmt
+e16aeea (Justin Barrick): produce prometheus metrics
+5d59777 (Justin Barrick): Tracing with jaeger
+
 Release v0.0.7:
 
 e69e28b (Justin Barrick): make slack2matrix cache sessions that it has already established so as to prevent DoSing matrix clients

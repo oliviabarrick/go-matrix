@@ -5,11 +5,11 @@ non-encrypted messages. It also includes a slack2matrix gateway for rewriting sl
 
 ## Docker
 
-Use the Docker image `justinbarrick/matrixctl:v0.0.7`
+Use the Docker image `justinbarrick/matrixctl:v0.0.8`
 
 ## Download binary
 
-Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.7/matrixctl -O && chmod +x matrixctl`.
+Download the binary: `curl https://github.com/justinbarrick/go-matrix/releases/download/v0.0.8/matrixctl -O && chmod +x matrixctl`.
 
 ## Build from source
 
