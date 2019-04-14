@@ -5,6 +5,7 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"context"
 	"log"
 	"os"
 	"os/user"
@@ -27,7 +28,7 @@ var registerCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		err = bot.Register(args[1], args[2])
+		err = bot.Register(context.TODO(), args[1], args[2])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -50,7 +51,7 @@ var loginCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		if err := bot.Login(args[1], args[2]); err != nil {
+		if err := bot.Login(context.TODO(), args[1], args[2]); err != nil {
 			log.Fatal(err)
 		}
 
@@ -72,9 +73,9 @@ var logoutCmd = &cobra.Command{
 		}
 
 		if viper.Get("all").(bool) {
-			err = bot.LogoutAll()
+			err = bot.LogoutAll(context.TODO())
 		} else {
-			err = bot.Logout()
+			err = bot.Logout(context.TODO())
 		}
 
 		if err != nil {
@@ -95,7 +96,7 @@ var joinCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		if err := bot.JoinRoom(args[0]); err != nil {
+		if err := bot.JoinRoom(context.TODO(), args[0]); err != nil {
 			log.Fatal(err)
 		}
 	},
@@ -112,9 +113,9 @@ var msgCmd = &cobra.Command{
 		}
 
 		if viper.Get("encrypted").(bool) {
-			err = bot.SendEncrypted(args[0], args[1])
+			err = bot.SendEncrypted(context.TODO(), args[0], args[1])
 		} else {
-			err = bot.Send(args[0], args[1])
+			err = bot.Send(context.TODO(), args[0], args[1])
 		}
 
 		if err != nil {

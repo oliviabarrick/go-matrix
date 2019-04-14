@@ -1,6 +1,11 @@
 package api
 
 import (
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/exporter/jaeger"
+	"go.opencensus.io/trace"
+	"os"
+
 	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
@@ -8,12 +13,30 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
 func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
+	if os.Getenv("JAEGER_ENDPOINT") != "" {
+		exporter, err := jaeger.NewExporter(jaeger.Options{
+			CollectorEndpoint: os.Getenv("JAEGER_ENDPOINT"),
+			Process: jaeger.Process{
+				ServiceName: "slack2matrix",
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		trace.RegisterExporter(exporter)
+	}
+
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, span := trace.StartSpan(r.Context(), "slack2matrix")
+		defer span.End()
+
 		body, _ := ioutil.ReadAll(r.Body)
 		log.Println("Raw request body:", string(body))
 
@@ -38,6 +61,7 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 		}
 
 		channel = fmt.Sprintf("!%s", strings.TrimLeft(channel, "#!"))
+		span.AddAttributes(trace.StringAttribute("channel", channel))
 
 		webhookBody, err := message.ToHTML()
 		if err != nil {
@@ -46,7 +70,7 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 			return
 		}
 
-		err = bot.SendEncrypted(channel, webhookBody)
+		err = bot.SendEncrypted(r.Context(), channel, webhookBody)
 		if err != nil {
 			log.Println("Error sending message:", err.Error())
 			http.Error(w, err.Error(), 500)
@@ -60,9 +84,13 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 
 	if certPath != "" && keyPath != "" {
 		log.Println("Starting slack2matrix with HTTPS on :8443.")
-		http.ListenAndServeTLS(":8443", certPath, keyPath, handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
+		http.ListenAndServeTLS(":8443", certPath, keyPath, &ochttp.Handler{
+			Handler: handlers.LoggingHandler(os.Stderr, http.DefaultServeMux),
+		})
 	} else {
 		log.Println("Starting slack2matrix server on :8000.")
-		http.ListenAndServe(":8000", handlers.LoggingHandler(os.Stderr, http.DefaultServeMux))
+		http.ListenAndServe(":8000", &ochttp.Handler{
+			Handler: handlers.LoggingHandler(os.Stderr, http.DefaultServeMux),
+		})
 	}
 }

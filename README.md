@@ -89,6 +89,11 @@ Now deploy the configuration: `kubectl apply -f deploy/kubernetes.yaml`.
 
 It should now be reachable at `slack2matrix.default.svc.cluster.local:8000`.
 
+# Tracing
+
+Slack2matrix can export traces to Jaeger by setting the `JAEGER_ENDPOINT` environment
+variable.
+
 # Versioning
 
 Matrixctl follows semver for versioning, but also publishes development images tagged

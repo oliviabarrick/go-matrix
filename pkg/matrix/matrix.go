@@ -1,6 +1,10 @@
 package matrix
 
 import (
+	"context"
+	"go.opencensus.io/plugin/ochttp"
+	httptransport "github.com/go-openapi/runtime/client"
+
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
@@ -69,33 +73,8 @@ type Bot struct {
 	Olm         *libolm.Matrix `json:"olm"`
 	client      *client.MatrixClientServer
 	shookDevices map[string]bool
-	groupSession *libolm.GroupSession
+	groupSession libolm.GroupSession
 	sessions []libolm.UserSession
-}
-
-func (b *Bot) getShookDevices() map[string]bool {
-	if b.shookDevices == nil {
-		b.shookDevices = map[string]bool{}
-	}
-
-	return b.shookDevices
-}
-
-func (b *Bot) getGroupSession() libolm.GroupSession {
-	if b.groupSession == nil {
-		groupSession := libolm.CreateOutboundGroupSession()
-		b.groupSession = &groupSession
-	}
-
-	return *b.groupSession
-}
-
-func (b *Bot) getSessions() []libolm.UserSession {
-	if b.sessions == nil {
-		b.sessions = []libolm.UserSession{}
-	}
-
-	return b.sessions
 }
 
 // Initialize a new bot instance. Most provide either username+password or accessToken.
@@ -111,6 +90,10 @@ func NewBot(server string) (Bot, error) {
 func (b *Bot) Init() (err error) {
 	transport := client.DefaultTransportConfig()
 	b.client = client.NewHTTPClientWithConfig(nil, transport.WithHost(b.Server))
+	b.client.Transport.(*httptransport.Runtime).Transport = &ochttp.Transport{}
+	b.shookDevices = map[string]bool{}
+	b.sessions = []libolm.UserSession{}
+	b.groupSession = libolm.CreateOutboundGroupSession()
 	return nil
 }
 
@@ -125,8 +108,8 @@ func (b *Bot) AuthenticateRequest(request runtime.ClientRequest, registry strfmt
 }
 
 // Login with a username and password, not needed if accessToken is provided.
-func (b *Bot) Register(username, password string) error {
-	registerParams := user_data.NewRegisterParams()
+func (b *Bot) Register(c context.Context, username, password string) error {
+	registerParams := user_data.NewRegisterParamsWithContext(c)
 	registerParams.SetBody(&models.RegisterParamsBody{
 		Username: username,
 		Password: password,
@@ -167,7 +150,7 @@ func (b *Bot) Register(username, password string) error {
 	b.UserId = *registerOk.Payload.UserID
 	b.Olm = libolm.NewMatrix()
 
-	err = b.UploadKeys()
+	err = b.UploadKeys(c)
 	if err != nil {
 		return err
 	}
@@ -176,10 +159,10 @@ func (b *Bot) Register(username, password string) error {
 }
 
 // Login with a username and password, not needed if accessToken is provided.
-func (b *Bot) Login(username, password string) error {
+func (b *Bot) Login(c context.Context, username, password string) error {
 	loginType := "m.login.password"
 
-	loginParams := session_management.NewLoginParams()
+	loginParams := session_management.NewLoginParamsWithContext(c)
 	loginParams.SetBody(&models.LoginParamsBody{
 		Type:     &loginType,
 		User:     username,
@@ -196,7 +179,7 @@ func (b *Bot) Login(username, password string) error {
 	b.UserId = loginOk.Payload.UserID
 	b.Olm = libolm.NewMatrix()
 
-	err = b.UploadKeys()
+	err = b.UploadKeys(c)
 	if err != nil {
 		return err
 	}
@@ -205,21 +188,21 @@ func (b *Bot) Login(username, password string) error {
 }
 
 // Logout an access token.
-func (b *Bot) Logout() error {
-	logoutParams := session_management.NewLogoutParams()
+func (b *Bot) Logout(c context.Context) error {
+	logoutParams := session_management.NewLogoutParamsWithContext(c)
 	_, err := b.client.SessionManagement.Logout(logoutParams, b)
 	return err
 }
 
 // Logout all access tokens for the device.
-func (b *Bot) LogoutAll() error {
-	logoutParams := session_management.NewLogoutAllParams()
+func (b *Bot) LogoutAll(c context.Context) error {
+	logoutParams := session_management.NewLogoutAllParamsWithContext(c)
 	_, err := b.client.SessionManagement.LogoutAll(logoutParams, b)
 	return err
 }
 
 // Upload our keys to the server.
-func (b *Bot) UploadKeys() error {
+func (b *Bot) UploadKeys(c context.Context) error {
 	uploadKeys, err := b.Olm.UploadKeysParams(b.DeviceId, b.UserId)
 	if err != nil {
 		return fmt.Errorf("Could not get upload keys parameters: %s", err)
@@ -239,8 +222,8 @@ func (b *Bot) UploadKeys() error {
 }
 
 // Join a room.
-func (b *Bot) JoinRoom(room_id string) error {
-	joinParams := room_membership.NewJoinRoomByIDParams()
+func (b *Bot) JoinRoom(c context.Context, room_id string) error {
+	joinParams := room_membership.NewJoinRoomByIDParamsWithContext(c)
 	joinParams.SetRoomID(room_id)
 
 	_, err := b.client.RoomMembership.JoinRoomByID(joinParams, b)
@@ -248,8 +231,8 @@ func (b *Bot) JoinRoom(room_id string) error {
 }
 
 // Get a list of all members in a room.
-func (b *Bot) GetRoomMembers(room_id string) ([]string, error) {
-	roomParams := room_participation.NewGetMembersByRoomParams()
+func (b *Bot) GetRoomMembers(c context.Context, room_id string) ([]string, error) {
+	roomParams := room_participation.NewGetMembersByRoomParamsWithContext(c)
 	roomParams.SetRoomID(room_id)
 
 	roomMembers, err := b.client.RoomParticipation.GetMembersByRoom(roomParams, b)
@@ -268,10 +251,10 @@ func (b *Bot) GetRoomMembers(room_id string) ([]string, error) {
 
 // Claim a one-time key from each member of the room so that we can send them a group
 // session key.
-func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, models.QueryKeysOKBodyDeviceKeys, error) {
+func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.ClaimKeysOKBody, models.QueryKeysOKBodyDeviceKeys, error) {
 	deviceKeys := models.QueryKeysOKBodyDeviceKeys{}
 
-	members, err := b.GetRoomMembers(room_id)
+	members, err := b.GetRoomMembers(c, room_id)
 	if err != nil {
 		return nil, deviceKeys, err
 	}
@@ -281,7 +264,7 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 		wantedDeviceKeys[destId] = []string{}
 	}
 
-	queryParams := end_to_end_encryption.NewQueryKeysParams()
+	queryParams := end_to_end_encryption.NewQueryKeysParamsWithContext(c)
 	queryParams.SetQuery(&models.QueryKeysParamsBody{
 		DeviceKeys: wantedDeviceKeys,
 	})
@@ -296,7 +279,7 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 
 	for _, destId := range members {
 		for destDeviceId, _ := range deviceKeys[destId] {
-			if b.getShookDevices()[destDeviceId] {
+			if b.shookDevices[destDeviceId] {
 				continue
 			}
 
@@ -308,7 +291,7 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 		}
 	}
 
-	claimParams := end_to_end_encryption.NewClaimKeysParams()
+	claimParams := end_to_end_encryption.NewClaimKeysParamsWithContext(c)
 	claimParams.SetQuery(&models.ClaimKeysParamsBody{
 		OneTimeKeys: wantedKeys,
 	})
@@ -323,8 +306,8 @@ func (b *Bot) ClaimRoomMemberKeys(room_id string) (*models.ClaimKeysOKBody, mode
 
 // Initialize an outbound group session for a room and send the session key to every
 // member of the channel so that we can send encrypted events.
-func (b *Bot) HandshakeRoom(room_id string) error {
-	oneTimeKeys, deviceKeys, err := b.ClaimRoomMemberKeys(room_id)
+func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
+	oneTimeKeys, deviceKeys, err := b.ClaimRoomMemberKeys(c, room_id)
 	if err != nil {
 		return err
 	}
@@ -338,7 +321,7 @@ func (b *Bot) HandshakeRoom(room_id string) error {
 
 				session := libolm.CreateOutboundSession(b.Olm.GetAccount(), destKey, destOneTimeKey)
 
-				b.sessions = append(b.getSessions(), libolm.UserSession{
+				b.sessions = append(b.sessions, libolm.UserSession{
 					Session:    session,
 					UserId:     destId,
 					DeviceId:   destDeviceId,
@@ -346,21 +329,21 @@ func (b *Bot) HandshakeRoom(room_id string) error {
 					Ed25519Key: ed25519Key,
 				})
 
-				b.getShookDevices()[destDeviceId] = true
+				b.shookDevices[destDeviceId] = true
 			}
 		}
 	}
 
-	return b.SendToDeviceEncrypted(map[string]interface{}{
+	return b.SendToDeviceEncrypted(c, map[string]interface{}{
 		"algorithm":   "m.megolm.v1.aes-sha2",
 		"room_id":     room_id,
-		"session_id":  b.getGroupSession().GetSessionID(),
-		"session_key": b.getGroupSession().GetSessionKey(),
+		"session_id":  b.groupSession.GetSessionID(),
+		"session_key": b.groupSession.GetSessionKey(),
 	})
 }
 
 // Craft an encrypted event payload that can be sent to the server as an event.
-func (b *Bot) EncryptedEvent(session libolm.Encrypter, event interface{}) (map[string]string, error) {
+func (b *Bot) EncryptedEvent(c context.Context, session libolm.Encrypter, event interface{}) (map[string]string, error) {
 	contentEncoded, err := json.Marshal(event)
 	if err != nil {
 		return nil, fmt.Errorf("Error encoding content: %s", err)
@@ -378,8 +361,8 @@ func (b *Bot) EncryptedEvent(session libolm.Encrypter, event interface{}) (map[s
 }
 
 // Send an event to a channel.
-func (b *Bot) SendEvent(channel string, eventType string, payload interface{}) error {
-	params := room_participation.NewSendMessageParams()
+func (b *Bot) SendEvent(c context.Context, channel string, eventType string, payload interface{}) error {
+	params := room_participation.NewSendMessageParamsWithContext(c)
 	params.SetRoomID(channel)
 	params.SetBody(payload)
 	params.SetEventType(eventType)
@@ -400,8 +383,8 @@ func (b *Bot) SendEvent(channel string, eventType string, payload interface{}) e
 }
 
 // Send an encrypted event to a channel.
-func (b *Bot) SendEncryptedEvent(channel string, eventType string, message interface{}) error {
-	if err := b.HandshakeRoom(channel); err != nil {
+func (b *Bot) SendEncryptedEvent(c context.Context, channel string, eventType string, message interface{}) error {
+	if err := b.HandshakeRoom(c, channel); err != nil {
 		return err
 	}
 
@@ -411,17 +394,17 @@ func (b *Bot) SendEncryptedEvent(channel string, eventType string, message inter
 		"room_id": channel,
 	}
 
-	encrypted, err := b.EncryptedEvent(b.getGroupSession(), payload)
+	encrypted, err := b.EncryptedEvent(c, b.groupSession, payload)
 	if err != nil {
 		return fmt.Errorf("Could not encrypt event: %s", err)
 	}
 
-	return b.SendEvent(channel, "m.room.encrypted", encrypted)
+	return b.SendEvent(c, channel, "m.room.encrypted", encrypted)
 }
 
 // Send an unencrypted message to a channel.
-func (b *Bot) Send(channel, message string) error {
-	err := b.JoinRoom(channel)
+func (b *Bot) Send(c context.Context, channel, message string) error {
+	err := b.JoinRoom(c, channel)
 	if err != nil {
 		return err
 	}
@@ -431,7 +414,7 @@ func (b *Bot) Send(channel, message string) error {
 		return err
 	}
 
-	return b.SendEvent(channel, "m.room.message", map[string]string{
+	return b.SendEvent(c, channel, "m.room.message", map[string]string{
 		"msgtype":        "m.text",
 		"formatted_body": message,
 		"format":         "org.matrix.custom.html",
@@ -440,8 +423,8 @@ func (b *Bot) Send(channel, message string) error {
 }
 
 // Send an encrypted message to a channel.
-func (b *Bot) SendEncrypted(channel, message string) error {
-	err := b.JoinRoom(channel)
+func (b *Bot) SendEncrypted(c context.Context, channel, message string) error {
+	err := b.JoinRoom(c, channel)
 	if err != nil {
 		return err
 	}
@@ -451,7 +434,7 @@ func (b *Bot) SendEncrypted(channel, message string) error {
 		return err
 	}
 
-	return b.SendEncryptedEvent(channel, "m.room.message", map[string]string{
+	return b.SendEncryptedEvent(c, channel, "m.room.message", map[string]string{
 		"body":           unformatted,
 		"formatted_body": message,
 		"msgtype":        "m.text",
@@ -492,13 +475,13 @@ func (b *Bot) EncryptedDirectEvent(session libolm.UserSession, event interface{}
 }
 
 // Send a message to a specific device. Primarily used for sending room_key messages.
-func (b *Bot) SendToDeviceEncrypted(event interface{}) error {
-	params := send_to_device_messaging.NewSendToDeviceParams()
+func (b *Bot) SendToDeviceEncrypted(c context.Context, event interface{}) error {
+	params := send_to_device_messaging.NewSendToDeviceParamsWithContext(c)
 	params.SetEventType("m.room.encrypted")
 
 	messages := map[string]map[string]interface{}{}
 
-	for _, session := range b.getSessions() {
+	for _, session := range b.sessions {
 		encrypted, err := b.EncryptedDirectEvent(session, event)
 		if err != nil {
 			return fmt.Errorf("Could not encrypt event: %s", err)
