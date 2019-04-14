@@ -1,11 +1,11 @@
 package api
 
 import (
-	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/exporter/jaeger"
 	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/trace"
+	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
 	"os"
 	"time"
 

@@ -2,8 +2,8 @@ package matrix
 
 import (
 	"context"
-	"go.opencensus.io/plugin/ochttp"
 	httptransport "github.com/go-openapi/runtime/client"
+	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -30,16 +30,16 @@ import (
 )
 
 var (
-	eventCount = stats.Int64("slack2matrix/matrix_events_sent", "number of events sent to matrix servers", stats.UnitDimensionless)
+	eventCount          = stats.Int64("slack2matrix/matrix_events_sent", "number of events sent to matrix servers", stats.UnitDimensionless)
 	encryptedEventCount = stats.Int64("slack2matrix/matrix_encrypted_events_sent", "number of encrypted events sent to matrix servers", stats.UnitDimensionless)
-	directEventCount = stats.Int64("slack2matrix/matrix_direct_events_sent", "number of events sent to directly matrix user devices", stats.UnitDimensionless)
-	sessionCount = stats.Int64("slack2matrix/matrix_sessions_established", "number of encrypted matrix sessions established with devices over time", stats.UnitDimensionless)
-	keyClaimCount = stats.Int64("slack2matrix/matrix_keys_claimed", "number of device keys claimed over time", stats.UnitDimensionless)
-	destIdTag, _ = tag.NewKey("dest_id")
-	destDeviceIdTag, _ = tag.NewKey("dest_device_id")
-	channelTag, _ = tag.NewKey("channel")
-	eventTypeTag, _ = tag.NewKey("event_type")
-	directTag, _ = tag.NewKey("direct")
+	directEventCount    = stats.Int64("slack2matrix/matrix_direct_events_sent", "number of events sent to directly matrix user devices", stats.UnitDimensionless)
+	sessionCount        = stats.Int64("slack2matrix/matrix_sessions_established", "number of encrypted matrix sessions established with devices over time", stats.UnitDimensionless)
+	keyClaimCount       = stats.Int64("slack2matrix/matrix_keys_claimed", "number of device keys claimed over time", stats.UnitDimensionless)
+	destIdTag, _        = tag.NewKey("dest_id")
+	destDeviceIdTag, _  = tag.NewKey("dest_device_id")
+	channelTag, _       = tag.NewKey("channel")
+	eventTypeTag, _     = tag.NewKey("event_type")
+	directTag, _        = tag.NewKey("direct")
 )
 
 func Serialize(b Bot, path string) error {
@@ -82,15 +82,15 @@ type DirectEvent struct {
 
 // A bot instance that can send messages to Matrix channels.
 type Bot struct {
-	UserId      string         `json:"userId"`
-	DeviceId    string         `json:"deviceId"`
-	AccessToken string         `json:"accessToken"`
-	Server      string         `json:"server"`
-	Olm         *libolm.Matrix `json:"olm"`
-	client      *client.MatrixClientServer
+	UserId       string         `json:"userId"`
+	DeviceId     string         `json:"deviceId"`
+	AccessToken  string         `json:"accessToken"`
+	Server       string         `json:"server"`
+	Olm          *libolm.Matrix `json:"olm"`
+	client       *client.MatrixClientServer
 	shookDevices map[string]bool
 	groupSession libolm.GroupSession
-	sessions []libolm.UserSession
+	sessions     []libolm.UserSession
 }
 
 // Initialize a new bot instance. Most provide either username+password or accessToken.
@@ -117,21 +117,21 @@ func (b *Bot) Init() (err error) {
 			Description: "number of events sent to matrix servers",
 			Measure:     eventCount,
 			Aggregation: view.Count(),
-			TagKeys: []tag.Key{channelTag, eventTypeTag,},
+			TagKeys:     []tag.Key{channelTag, eventTypeTag},
 		},
 		&view.View{
 			Name:        "matrix_encrypted_events_sent",
 			Description: "number of encrypted events sent to matrix servers",
 			Measure:     encryptedEventCount,
 			Aggregation: view.Count(),
-			TagKeys: []tag.Key{channelTag, eventTypeTag,},
+			TagKeys:     []tag.Key{channelTag, eventTypeTag},
 		},
 		&view.View{
 			Name:        "matrix_direct_events_sent",
 			Description: "number of events sent to directly to matrix user devices",
 			Measure:     directEventCount,
 			Aggregation: view.Count(),
-			TagKeys: []tag.Key{destIdTag, destDeviceIdTag, eventTypeTag,},
+			TagKeys:     []tag.Key{destIdTag, destDeviceIdTag, eventTypeTag},
 		},
 
 		&view.View{
@@ -139,14 +139,14 @@ func (b *Bot) Init() (err error) {
 			Description: "number of encrypted matrix sessions established with devices over time",
 			Measure:     sessionCount,
 			Aggregation: view.Count(),
-			TagKeys: []tag.Key{destIdTag, destDeviceIdTag,},
+			TagKeys:     []tag.Key{destIdTag, destDeviceIdTag},
 		},
 		&view.View{
 			Name:        "matrix_keys_claimed",
 			Description: "number of device keys claimed over time",
 			Measure:     keyClaimCount,
 			Aggregation: view.Count(),
-			TagKeys: []tag.Key{destIdTag, destDeviceIdTag,},
+			TagKeys:     []tag.Key{destIdTag, destDeviceIdTag},
 		},
 	)
 }
@@ -332,7 +332,7 @@ func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.Cl
 	wantedKeys := map[string]map[string]string{}
 
 	for _, destId := range members {
-		for destDeviceId, _ := range deviceKeys[destId] {
+		for destDeviceId := range deviceKeys[destId] {
 			if b.shookDevices[destDeviceId] {
 				continue
 			}
@@ -546,7 +546,7 @@ func (b *Bot) EncryptedDirectEvent(c context.Context, session libolm.UserSession
 		Algorithm: "m.olm.v1.curve25519-aes-sha2",
 		SenderKey: b.Olm.GetIdentityKeys().Curve25519,
 		Ciphertext: map[string]map[string]interface{}{
-			session.DeviceKey: map[string]interface{}{
+			session.DeviceKey: {
 				"body": ciphertext,
 				"type": 0,
 			},

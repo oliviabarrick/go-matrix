@@ -1,11 +1,11 @@
 package main
 
 import (
+	"context"
 	"github.com/justinbarrick/go-matrix/pkg/api"
 	"github.com/justinbarrick/go-matrix/pkg/matrix"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"context"
 	"log"
 	"os"
 	"os/user"
