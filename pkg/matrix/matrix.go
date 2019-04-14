@@ -4,6 +4,9 @@ import (
 	"context"
 	"go.opencensus.io/plugin/ochttp"
 	httptransport "github.com/go-openapi/runtime/client"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
@@ -24,6 +27,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+)
+
+var (
+	eventCount = stats.Int64("slack2matrix/matrix_events_sent", "number of events sent to matrix servers", stats.UnitDimensionless)
+	encryptedEventCount = stats.Int64("slack2matrix/matrix_encrypted_events_sent", "number of encrypted events sent to matrix servers", stats.UnitDimensionless)
+	directEventCount = stats.Int64("slack2matrix/matrix_direct_events_sent", "number of events sent to directly matrix user devices", stats.UnitDimensionless)
+	sessionCount = stats.Int64("slack2matrix/matrix_sessions_established", "number of encrypted matrix sessions established with devices over time", stats.UnitDimensionless)
+	keyClaimCount = stats.Int64("slack2matrix/matrix_keys_claimed", "number of device keys claimed over time", stats.UnitDimensionless)
+	destIdTag, _ = tag.NewKey("dest_id")
+	destDeviceIdTag, _ = tag.NewKey("dest_device_id")
+	channelTag, _ = tag.NewKey("channel")
+	eventTypeTag, _ = tag.NewKey("event_type")
+	directTag, _ = tag.NewKey("direct")
 )
 
 func Serialize(b Bot, path string) error {
@@ -94,7 +110,45 @@ func (b *Bot) Init() (err error) {
 	b.shookDevices = map[string]bool{}
 	b.sessions = []libolm.UserSession{}
 	b.groupSession = libolm.CreateOutboundGroupSession()
-	return nil
+
+	return view.Register(
+		&view.View{
+			Name:        "matrix_events_sent",
+			Description: "number of events sent to matrix servers",
+			Measure:     eventCount,
+			Aggregation: view.Count(),
+			TagKeys: []tag.Key{channelTag, eventTypeTag,},
+		},
+		&view.View{
+			Name:        "matrix_encrypted_events_sent",
+			Description: "number of encrypted events sent to matrix servers",
+			Measure:     encryptedEventCount,
+			Aggregation: view.Count(),
+			TagKeys: []tag.Key{channelTag, eventTypeTag,},
+		},
+		&view.View{
+			Name:        "matrix_direct_events_sent",
+			Description: "number of events sent to directly to matrix user devices",
+			Measure:     directEventCount,
+			Aggregation: view.Count(),
+			TagKeys: []tag.Key{destIdTag, destDeviceIdTag, eventTypeTag,},
+		},
+
+		&view.View{
+			Name:        "matrix_sessions_established",
+			Description: "number of encrypted matrix sessions established with devices over time",
+			Measure:     sessionCount,
+			Aggregation: view.Count(),
+			TagKeys: []tag.Key{destIdTag, destDeviceIdTag,},
+		},
+		&view.View{
+			Name:        "matrix_keys_claimed",
+			Description: "number of device keys claimed over time",
+			Measure:     keyClaimCount,
+			Aggregation: view.Count(),
+			TagKeys: []tag.Key{destIdTag, destDeviceIdTag,},
+		},
+	)
 }
 
 // Implement ClientAuthInfoWriter by adding the bot's access token to all API requests.
@@ -287,6 +341,11 @@ func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.Cl
 				wantedKeys[destId] = map[string]string{}
 			}
 
+			stats.RecordWithTags(c, []tag.Mutator{
+				tag.Insert(destIdTag, destId),
+				tag.Insert(destDeviceIdTag, destDeviceId),
+			}, keyClaimCount.M(1))
+
 			wantedKeys[destId][destDeviceId] = "signed_curve25519"
 		}
 	}
@@ -328,6 +387,11 @@ func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
 					DeviceKey:  destKey,
 					Ed25519Key: ed25519Key,
 				})
+
+				stats.RecordWithTags(c, []tag.Mutator{
+					tag.Insert(destIdTag, destId),
+					tag.Insert(destDeviceIdTag, destDeviceId),
+				}, sessionCount.M(1))
 
 				b.shookDevices[destDeviceId] = true
 			}
@@ -374,6 +438,11 @@ func (b *Bot) SendEvent(c context.Context, channel string, eventType string, pay
 
 	params.SetTxnID(txid.String())
 
+	stats.RecordWithTags(c, []tag.Mutator{
+		tag.Insert(eventTypeTag, eventType),
+		tag.Insert(channelTag, channel),
+	}, eventCount.M(1))
+
 	_, err = b.client.RoomParticipation.SendMessage(params, b)
 	if err != nil {
 		return fmt.Errorf("Could not send message: %s", err)
@@ -398,6 +467,11 @@ func (b *Bot) SendEncryptedEvent(c context.Context, channel string, eventType st
 	if err != nil {
 		return fmt.Errorf("Could not encrypt event: %s", err)
 	}
+
+	stats.RecordWithTags(c, []tag.Mutator{
+		tag.Insert(eventTypeTag, eventType),
+		tag.Insert(channelTag, channel),
+	}, encryptedEventCount.M(1))
 
 	return b.SendEvent(c, channel, "m.room.encrypted", encrypted)
 }
@@ -443,7 +517,7 @@ func (b *Bot) SendEncrypted(c context.Context, channel, message string) error {
 }
 
 // Craft an encrypted event that can be sent directly to a device.
-func (b *Bot) EncryptedDirectEvent(session libolm.UserSession, event interface{}) (*DirectEvent, error) {
+func (b *Bot) EncryptedDirectEvent(c context.Context, session libolm.UserSession, event interface{}) (*DirectEvent, error) {
 	contentEncoded, err := json.Marshal(map[string]interface{}{
 		"content":   event,
 		"type":      "m.room_key",
@@ -461,6 +535,12 @@ func (b *Bot) EncryptedDirectEvent(session libolm.UserSession, event interface{}
 	}
 
 	_, ciphertext := session.Session.Encrypt(string(contentEncoded))
+
+	stats.RecordWithTags(c, []tag.Mutator{
+		tag.Insert(eventTypeTag, "m.room_key"),
+		tag.Insert(destIdTag, session.UserId),
+		tag.Insert(destDeviceIdTag, session.DeviceId),
+	}, directEventCount.M(1))
 
 	return &DirectEvent{
 		Algorithm: "m.olm.v1.curve25519-aes-sha2",
@@ -482,7 +562,7 @@ func (b *Bot) SendToDeviceEncrypted(c context.Context, event interface{}) error 
 	messages := map[string]map[string]interface{}{}
 
 	for _, session := range b.sessions {
-		encrypted, err := b.EncryptedDirectEvent(session, event)
+		encrypted, err := b.EncryptedDirectEvent(c, session, event)
 		if err != nil {
 			return fmt.Errorf("Could not encrypt event: %s", err)
 		}

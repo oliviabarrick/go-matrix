@@ -3,8 +3,11 @@ package api
 import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/exporter/jaeger"
+	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/trace"
+	"go.opencensus.io/stats/view"
 	"os"
+	"time"
 
 	"fmt"
 	"github.com/gorilla/handlers"
@@ -17,6 +20,14 @@ import (
 )
 
 func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
+	exporter, err := prometheus.NewExporter(prometheus.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	view.RegisterExporter(exporter)
+	view.SetReportingPeriod(1 * time.Second)
+	http.Handle("/metrics", exporter)
+
 	if os.Getenv("JAEGER_ENDPOINT") != "" {
 		exporter, err := jaeger.NewExporter(jaeger.Options{
 			CollectorEndpoint: os.Getenv("JAEGER_ENDPOINT"),
