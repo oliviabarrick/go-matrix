@@ -108,7 +108,6 @@ func (b *Bot) Init() (err error) {
 	b.client = client.NewHTTPClientWithConfig(nil, transport.WithHost(b.Server))
 	b.client.Transport.(*httptransport.Runtime).Transport = &ochttp.Transport{}
 	b.shookDevices = map[string]bool{}
-	b.sessions = []libolm.UserSession{}
 	b.groupSession = libolm.CreateOutboundGroupSession()
 
 	return view.Register(
@@ -360,6 +359,12 @@ func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.Cl
 		return nil, deviceKeys, fmt.Errorf("Error claiming keys: %s", err)
 	}
 
+	for _, destId := range members {
+		for destDeviceId := range deviceKeys[destId] {
+			b.shookDevices[destDeviceId] = true
+		}
+	}
+
 	return claim.Payload, deviceKeys, nil
 }
 
@@ -371,6 +376,8 @@ func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
 		return err
 	}
 
+	newSessions := []libolm.UserSession{}
+
 	for destId, destDevices := range oneTimeKeys.OneTimeKeys {
 		for destDeviceId, keys := range destDevices {
 			for _, keyData := range keys {
@@ -380,7 +387,7 @@ func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
 
 				session := libolm.CreateOutboundSession(b.Olm.GetAccount(), destKey, destOneTimeKey)
 
-				b.sessions = append(b.sessions, libolm.UserSession{
+				newSessions = append(newSessions, libolm.UserSession{
 					Session:    session,
 					UserId:     destId,
 					DeviceId:   destDeviceId,
@@ -392,13 +399,15 @@ func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
 					tag.Insert(destIdTag, destId),
 					tag.Insert(destDeviceIdTag, destDeviceId),
 				}, sessionCount.M(1))
-
-				b.shookDevices[destDeviceId] = true
 			}
 		}
 	}
 
-	return b.SendToDeviceEncrypted(c, map[string]interface{}{
+	if len(newSessions) == 0 {
+		return nil
+	}
+
+	return b.SendToDeviceEncrypted(c, newSessions, map[string]interface{}{
 		"algorithm":   "m.megolm.v1.aes-sha2",
 		"room_id":     room_id,
 		"session_id":  b.groupSession.GetSessionID(),
@@ -555,13 +564,13 @@ func (b *Bot) EncryptedDirectEvent(c context.Context, session libolm.UserSession
 }
 
 // Send a message to a specific device. Primarily used for sending room_key messages.
-func (b *Bot) SendToDeviceEncrypted(c context.Context, event interface{}) error {
+func (b *Bot) SendToDeviceEncrypted(c context.Context, sessions []libolm.UserSession, event interface{}) error {
 	params := send_to_device_messaging.NewSendToDeviceParamsWithContext(c)
 	params.SetEventType("m.room.encrypted")
 
 	messages := map[string]map[string]interface{}{}
 
-	for _, session := range b.sessions {
+	for _, session := range sessions {
 		encrypted, err := b.EncryptedDirectEvent(c, session, event)
 		if err != nil {
 			return fmt.Errorf("Could not encrypt event: %s", err)
