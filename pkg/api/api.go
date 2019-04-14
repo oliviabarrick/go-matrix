@@ -45,7 +45,7 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, span := trace.StartSpan(r.Context(), "slack2matrix")
+		span := trace.FromContext(r.Context())
 		defer span.End()
 
 		body, _ := ioutil.ReadAll(r.Body)
@@ -97,11 +97,13 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 		log.Println("Starting slack2matrix with HTTPS on :8443.")
 		http.ListenAndServeTLS(":8443", certPath, keyPath, &ochttp.Handler{
 			Handler: handlers.LoggingHandler(os.Stderr, http.DefaultServeMux),
+			IsPublicEndpoint: false,
 		})
 	} else {
 		log.Println("Starting slack2matrix server on :8000.")
 		http.ListenAndServe(":8000", &ochttp.Handler{
 			Handler: handlers.LoggingHandler(os.Stderr, http.DefaultServeMux),
+			IsPublicEndpoint: false,
 		})
 	}
 }
