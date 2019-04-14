@@ -1,3 +1,8 @@
+Release v0.0.7:
+
+e69e28b (Justin Barrick): make slack2matrix cache sessions that it has already established so as to prevent DoSing matrix clients
+4956141 (Justin): Fix CI configuration
+
 Release v0.0.6:
 
 0e63b21 (Justin Barrick): Support TLS
