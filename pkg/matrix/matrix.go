@@ -89,6 +89,7 @@ type Bot struct {
 	Olm          *libolm.Matrix `json:"olm"`
 	client       *client.MatrixClientServer
 	shookDevices map[string]bool
+	joinedRooms map[string]bool
 	groupSession libolm.GroupSession
 	sessions     []libolm.UserSession
 }
@@ -108,6 +109,7 @@ func (b *Bot) Init() (err error) {
 	b.client = client.NewHTTPClientWithConfig(nil, transport.WithHost(b.Server))
 	b.client.Transport.(*httptransport.Runtime).Transport = &ochttp.Transport{}
 	b.shookDevices = map[string]bool{}
+	b.joinedRooms = map[string]bool{}
 	b.groupSession = libolm.CreateOutboundGroupSession()
 
 	return view.Register(
@@ -276,10 +278,19 @@ func (b *Bot) UploadKeys(c context.Context) error {
 
 // Join a room.
 func (b *Bot) JoinRoom(c context.Context, room_id string) error {
+	if b.joinedRooms[room_id] {
+		return nil
+	}
+
 	joinParams := room_membership.NewJoinRoomByIDParamsWithContext(c)
 	joinParams.SetRoomID(room_id)
 
 	_, err := b.client.RoomMembership.JoinRoomByID(joinParams, b)
+
+	if err != nil {
+		b.joinedRooms[room_id] = true
+	}
+
 	return err
 }
 
