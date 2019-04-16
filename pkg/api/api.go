@@ -15,6 +15,7 @@ import (
 	"github.com/justinbarrick/go-matrix/pkg/slack2matrix"
 	"io/ioutil"
 	"log"
+	_ "net/http/pprof"
 	"net/http"
 	"strings"
 )
