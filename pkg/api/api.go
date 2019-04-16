@@ -1,6 +1,7 @@
 package api
 
 import (
+	"go.opencensus.io/zpages"
 	"go.opencensus.io/exporter/jaeger"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/plugin/ochttp"
@@ -28,6 +29,7 @@ func Api(bot matrix.Bot, defaultChannel, certPath, keyPath string) {
 	view.RegisterExporter(exporter)
 	view.SetReportingPeriod(1 * time.Second)
 	http.Handle("/metrics", exporter)
+	zpages.Handle(nil, "/debug")
 
 	if os.Getenv("JAEGER_ENDPOINT") != "" {
 		exporter, err := jaeger.NewExporter(jaeger.Options{
