@@ -32,6 +32,11 @@ type SlackAttachment struct {
 	Title     MarkdownString `json:"title"`
 	TitleLink MarkdownString `json:"title_link"`
 	Text      MarkdownString `json:"text"`
+	Fields    []SlackFields  `json:"fields"`
+}
+
+type SlackFields struct {
+	Value MarkdownString `json:"value"`
 }
 
 type MarkdownString string
@@ -125,7 +130,20 @@ func (s *SlackAttachment) ToHTML() (string, error) {
 		color = ""
 	}
 
-	return fmt.Sprintf("%s<div>%s%s</div>", body, color, mainText), err
+	if mainText != "" {
+		body = fmt.Sprintf("%s<div>%s%s</div>", body, color, mainText)
+	}
+
+	for _, field := range s.Fields {
+		fieldStr, err := field.Value.ToHTML()
+		if err != nil {
+			return "", err
+		}
+
+		body = fmt.Sprintf("%s<div>%s%s</div>", body, color, fieldStr)
+	}
+
+	return body, err
 }
 
 func ColorSpan(color string) (string, error) {
