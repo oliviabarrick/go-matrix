@@ -1,3 +1,11 @@
+Release v0.0.9:
+
+4e732be (Justin Barrick): Support extra slack fields
+1b2338f (Justin): add zpages
+687b6e6 (Justin): Update api.go
+6da7714 (Justin Barrick): cache room joins
+3f84eed (Justin Barrick): clean up traces
+
 Release v0.0.8:
 
 4fe6eaa (Justin Barrick): fix session caching
