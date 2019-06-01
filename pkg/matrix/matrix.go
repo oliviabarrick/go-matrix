@@ -90,7 +90,7 @@ type Bot struct {
 	client       *client.MatrixClientServer
 	shookDevices map[string]bool
 	joinedRooms map[string]bool
-	groupSession libolm.GroupSession
+	groupSessions map[string]libolm.GroupSession
 	sessions     []libolm.UserSession
 }
 
@@ -110,7 +110,7 @@ func (b *Bot) Init() (err error) {
 	b.client.Transport.(*httptransport.Runtime).Transport = &ochttp.Transport{}
 	b.shookDevices = map[string]bool{}
 	b.joinedRooms = map[string]bool{}
-	b.groupSession = libolm.CreateOutboundGroupSession()
+	b.groupSessions = map[string]libolm.GroupSession{}
 
 	return view.Register(
 		&view.View{
@@ -343,7 +343,7 @@ func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.Cl
 
 	for _, destId := range members {
 		for destDeviceId := range deviceKeys[destId] {
-			if b.shookDevices[destDeviceId] {
+			if b.shookDevices[fmt.Sprintf("%s:%s", room_id, destDeviceId)] {
 				continue
 			}
 
@@ -372,7 +372,7 @@ func (b *Bot) ClaimRoomMemberKeys(c context.Context, room_id string) (*models.Cl
 
 	for _, destId := range members {
 		for destDeviceId := range deviceKeys[destId] {
-			b.shookDevices[destDeviceId] = true
+			b.shookDevices[fmt.Sprintf("%s:%s", room_id, destDeviceId)] = true
 		}
 	}
 
@@ -421,11 +421,18 @@ func (b *Bot) HandshakeRoom(c context.Context, room_id string) error {
 	return b.SendToDeviceEncrypted(c, newSessions, map[string]interface{}{
 		"algorithm":   "m.megolm.v1.aes-sha2",
 		"room_id":     room_id,
-		"session_id":  b.groupSession.GetSessionID(),
-		"session_key": b.groupSession.GetSessionKey(),
+		"session_id":  b.groupSession(room_id).GetSessionID(),
+		"session_key": b.groupSession(room_id).GetSessionKey(),
 	})
 }
 
+func (b *Bot) groupSession(channel string) libolm.GroupSession {
+	if _, ok := b.groupSessions[channel]; ! ok {
+		b.groupSessions[channel] = libolm.CreateOutboundGroupSession()
+	}
+
+	return b.groupSessions[channel]
+}
 // Craft an encrypted event payload that can be sent to the server as an event.
 func (b *Bot) EncryptedEvent(c context.Context, session libolm.Encrypter, event interface{}) (map[string]string, error) {
 	contentEncoded, err := json.Marshal(event)
@@ -483,7 +490,7 @@ func (b *Bot) SendEncryptedEvent(c context.Context, channel string, eventType st
 		"room_id": channel,
 	}
 
-	encrypted, err := b.EncryptedEvent(c, b.groupSession, payload)
+	encrypted, err := b.EncryptedEvent(c, b.groupSession(channel), payload)
 	if err != nil {
 		return fmt.Errorf("Could not encrypt event: %s", err)
 	}
