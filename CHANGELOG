@@ -1,3 +1,7 @@
+Release v0.0.10:
+
+6af2637 (Justin Barrick): fix sending for multiple channels
+
 Release v0.0.9:
 
 4e732be (Justin Barrick): Support extra slack fields
